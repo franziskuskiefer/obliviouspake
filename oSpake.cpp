@@ -323,153 +323,173 @@ BigInt computeKey(BigInt publicValue, BigInt pwd, BigInt publicKey, DH_PrivateKe
 	return power_mod(publicKey*(inverse_mod(NPW, G.get_p())), privateKey.get_x(), G.get_p());
 }
 
-int main()
+int main(int argc, char* argv[])
 {
 	try
 	{
-		LibraryInitializer init;
-		AutoSeeded_RNG rng;
-		struct timespec start, stop;
-		double accum, accumA;
-		clock_t clk_tmp;
+		if (argc < 2)
+			std::cout << "Usage: ./ospake <numRuns>\n";
+		else {
+			double sumServer = 0, sumClient = 0;
+			int count = atoi(argv[1]);
+			bool errors = false;
+			for (int cnt = 0; cnt < count; ++cnt){
+				std::cout << ".." << std::flush;
+
+				LibraryInitializer init;
+				AutoSeeded_RNG rng;
+				struct timespec start, stop;
+				double accum, accumA;
+				clock_t clk_tmp;
+
+				// Alice and Bob agree on a DH domain to use
+				DL_Group G("modp/ietf/2048");
+
+				// generate SPAKE public variables (M,N)
+				BigInt tmp = BigInt(rng, (size_t)1024);
+				BigInt M = power_mod(G.get_g(), tmp, G.get_p());
+
+				tmp = BigInt(rng, (size_t)1024);
+				BigInt N = power_mod(G.get_g(), tmp, G.get_p());
+
+				const std::string session_param = "Alice and Bob's shared session parameter";
+
+				// Alice creates a DH key
+				clock_gettime(CLOCK_REALTIME, &start);
+				DH_PrivateKey private_a(rng, G);
+
+				// Alice sends to Bob her public key and a session parameter
+				// include password here
+				BigInt pwd1Num = pwdToBigInt("Password1");
+				BigInt pwd2Num = pwdToBigInt("Password2");
+
+				BigInt public_a1BigInt = createMessate(private_a, pwd1Num, G, M);
+				BigInt public_a2BigInt = createMessate(private_a, pwd2Num, G, M);
+
+				///////////////////////////////////////////////////////////////////
+				// XXX: here the interesting stuff happens.....
+
+				// generate admissible encoding parameters
+				z_p_star z = generate_Z(G);
+
+				// encode the client's (Alice) messages
+				BigInt encoded_public_A1 = aEncode(z, G, public_a1BigInt);
+				BigInt encoded_public_A2 = aEncode(z, G, public_a2BigInt);
+
+				// add IHME to the admissible encoded values
+				struct point P[NUM];
+				gcry_mpi_t *S;
+				for (int k = 0; k < NUM; k++)
+					initpoint(&P[k]);
+				int pos = 0;
+				addElement(P, &pos, pwd1Num, encoded_public_A1);
+				addElement(P, &pos, pwd2Num, encoded_public_A2);
+				S = createIHMEResultSet();
+				gcry_mpi_t p;
+				BigIntToMpi(&p, G.get_p());
+				interpolation_alg2(S, P, NUM, p);
+				//XXX: Alice outputs S and sends it to Bob /////////////////////
+
+				clock_gettime(CLOCK_REALTIME, &stop);
+				accumA = (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
 
 
-		// Alice and Bob agree on a DH domain to use
-		DL_Group G("modp/ietf/2048");
+				///////////////// BOB //////////////////////////////////////
 
-		// generate SPAKE public variables (M,N)
-		BigInt tmp = BigInt(rng, (size_t)1024);
-		BigInt M = power_mod(G.get_g(), tmp, G.get_p());
+				// Bob creates a key with a matching group
+				clock_gettime(CLOCK_REALTIME, &start);
+				DH_PrivateKey private_b(rng, G);
 
-		tmp = BigInt(rng, (size_t)1024);
-		BigInt N = power_mod(G.get_g(), tmp, G.get_p());
+				// Bob sends his public key to Alice
+				// include password here
+				BigInt public_b1BigInt = createMessate(private_b, pwd1Num, G, N);
 
-		const std::string session_param = "Alice and Bob's shared session parameter";
+				// decode it again (Bob does)
+				// IHME decode
+				gcry_mpi_t encoded_public_A_MPI, pwd1NumMPI;
+				BigIntToMpi(&pwd1NumMPI, pwd1Num);
+				encoded_public_A_MPI = gcry_mpi_new(0);
+				decode(encoded_public_A_MPI,S,pwd1NumMPI,NUM,p);
+				BigInt aEncodedMessageFromAlice = MpiToBigInt(encoded_public_A_MPI);
 
-		// Alice creates a DH key
-		clock_gettime(CLOCK_REALTIME, &start);
-		DH_PrivateKey private_a(rng, G);
+				// admissible decode
+				BigInt bobs_public_A = aDecode(z, G, aEncodedMessageFromAlice);
 
-		// Alice sends to Bob her public key and a session parameter
-		// include password here
-		BigInt pwd1Num = pwdToBigInt("Password1");
-		BigInt pwd2Num = pwdToBigInt("Password2");
-		
-		BigInt public_a1BigInt = createMessate(private_a, pwd1Num, G, M);
-		BigInt public_a2BigInt = createMessate(private_a, pwd2Num, G, M);
+				// compute k for bob
+				BigInt KB = computeKey(M, pwd1Num, bobs_public_A, private_b, G);
 
-		///////////////////////////////////////////////////////////////////
-		// XXX: here the interesting stuff happens.....
+				// Bob calculates the his keys:
+				OctetString bob_key = hashIt(session_param, bobs_public_A, public_b1BigInt, pwd1Num, KB);
 
-		// generate admissible encoding parameters
-		z_p_star z = generate_Z(G);
+				// bob calculates hash value for confirmation
+				SecureVector<byte> confVal;
+				OctetString bobFinalK;
+				std::vector<byte> Sbuf = getSbuf(S);
+				OctetString public_B(BigInt::encode(public_b1BigInt));
+				InitializationVector ivKey, ivConf;
+				keyGen(public_B, Sbuf, bob_key, &bobFinalK, &ivKey);
+				confGen(public_B, Sbuf, bob_key, &confVal, &ivConf);
 
-		// encode the client's (Alice) messages
-		BigInt encoded_public_A1 = aEncode(z, G, public_a1BigInt);
-		BigInt encoded_public_A2 = aEncode(z, G, public_a2BigInt);
+				clock_gettime(CLOCK_REALTIME, &stop);
+				accum = (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
+				//		printf("TIMING: Bob: %lf sec\n", accum);
+//				printf("Timings: %lf ", accum);
+				sumServer += accum;
+				///////////////////////////////////////////////////////////////////////////////////////////////////
 
-		// add IHME to the admissible encoded values
-		struct point P[NUM];
-		gcry_mpi_t *S;
-		for (int k = 0; k < NUM; k++)
-			initpoint(&P[k]);
-		int pos = 0;
-		addElement(P, &pos, pwd1Num, encoded_public_A1);
-		addElement(P, &pos, pwd2Num, encoded_public_A2);
-		S = createIHMEResultSet();
-		gcry_mpi_t p;
-		BigIntToMpi(&p, G.get_p());
-		interpolation_alg2(S, P, NUM, p);
-		//XXX: Alice outputs S and sends it to Bob /////////////////////
+				// XXX: Second part Alice: compute keys ///////////////////////
+				clock_gettime(CLOCK_REALTIME, &start);
 
-		clock_gettime(CLOCK_REALTIME, &stop);
-		accumA = (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
+				// Now Alice performs the key agreement operation
+				// compute keys for alice
+				BigInt KA1 = computeKey(N, pwd1Num, public_b1BigInt, private_a, G);
+				BigInt KA2 = computeKey(N, pwd2Num, public_b1BigInt, private_a, G);
+				OctetString alice_key1 = hashIt(session_param, public_a1BigInt, public_b1BigInt, pwd1Num, KA1);
+				OctetString alice_key2 = hashIt(session_param, public_a2BigInt, public_b1BigInt, pwd2Num, KA2);
+
+				// check confirmation value and get correct key
+				SecureVector<byte> confKA1, confKA2;
+				std::vector<byte> SbufA = getSbuf(S);
+				public_B = OctetString(BigInt::encode(public_b1BigInt));
+				confGen(public_B, SbufA, alice_key1, &confKA1, &ivConf);
+				confGen(public_B, SbufA, alice_key2, &confKA2, &ivConf);
+				OctetString alice_key;
+				if (confKA1 == confVal){
+					keyGen(public_B, SbufA, alice_key1, &alice_key, &ivKey);
+				}
+				else if (confKA2 == confVal){
+					keyGen(public_B, SbufA, alice_key2, &alice_key, &ivKey);
+				}
+				else
+					alice_key = OctetString("00");
 
 
-		///////////////// BOB //////////////////////////////////////
+				clock_gettime(CLOCK_REALTIME, &stop);
+				accumA += (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
+				//		printf("TIMING: Alice: %lf sec\n", accumA);
+//				printf("%lf\n", accumA);
+				sumClient += accumA;
 
-		// Bob creates a key with a matching group
-		clock_gettime(CLOCK_REALTIME, &start);
-		DH_PrivateKey private_b(rng, G);
-
-		// Bob sends his public key to Alice
-		// include password here
-		BigInt public_b1BigInt = createMessate(private_b, pwd1Num, G, N);
-
-		// decode it again (Bob does)
-		// IHME decode
-		gcry_mpi_t encoded_public_A_MPI, pwd1NumMPI;
-		BigIntToMpi(&pwd1NumMPI, pwd1Num);
-		encoded_public_A_MPI = gcry_mpi_new(0);
-		decode(encoded_public_A_MPI,S,pwd1NumMPI,NUM,p);
-		BigInt aEncodedMessageFromAlice = MpiToBigInt(encoded_public_A_MPI);
-
-		// admissible decode
-		BigInt bobs_public_A = aDecode(z, G, aEncodedMessageFromAlice);
-
-		// compute k for bob
-		BigInt KB = computeKey(M, pwd1Num, bobs_public_A, private_b, G);
-
-		// Bob calculates the his keys:
-		OctetString bob_key = hashIt(session_param, bobs_public_A, public_b1BigInt, pwd1Num, KB);
-
-		// bob calculates hash value for confirmation
-		SecureVector<byte> confVal;
-		OctetString bobFinalK;
-		std::vector<byte> Sbuf = getSbuf(S);
-		OctetString public_B(BigInt::encode(public_b1BigInt));
-		InitializationVector ivKey, ivConf;
-		keyGen(public_B, Sbuf, bob_key, &bobFinalK, &ivKey);
-		confGen(public_B, Sbuf, bob_key, &confVal, &ivConf);
-
-		clock_gettime(CLOCK_REALTIME, &stop);
-		accum = (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
-		printf("TIMING: Bob: %lf sec\n", accum);
-		///////////////////////////////////////////////////////////////////////////////////////////////////
-
-		// XXX: Second part Alice: compute keys ///////////////////////
-		clock_gettime(CLOCK_REALTIME, &start);
-
-		// Now Alice performs the key agreement operation
-		// compute keys for alice
-		BigInt KA1 = computeKey(N, pwd1Num, public_b1BigInt, private_a, G);
-		BigInt KA2 = computeKey(N, pwd2Num, public_b1BigInt, private_a, G);
-		OctetString alice_key1 = hashIt(session_param, public_a1BigInt, public_b1BigInt, pwd1Num, KA1);
-		OctetString alice_key2 = hashIt(session_param, public_a2BigInt, public_b1BigInt, pwd2Num, KA2);
-
-		// check confirmation value and get correct key
-		SecureVector<byte> confKA1, confKA2;
-		std::vector<byte> SbufA = getSbuf(S);
-		public_B = OctetString(BigInt::encode(public_b1BigInt));
-		confGen(public_B, SbufA, alice_key1, &confKA1, &ivConf);
-		confGen(public_B, SbufA, alice_key2, &confKA2, &ivConf);
-		OctetString alice_key;
-		if (confKA1 == confVal){
-			keyGen(public_B, SbufA, alice_key1, &alice_key, &ivKey);
+				if(alice_key == bobFinalK)
+				{
+//					std::cout << "The two keys matched, everything worked\n";
+//					std::cout << "The shared key was: " << alice_key.as_string() << "\n";
+				}
+				else
+				{
+					errors = true;
+//					std::cout << "The two keys didn't match! Hmmm...\n";
+//					std::cout << "Alice's key was: " << alice_key.as_string() << "\n";
+//					std::cout << "Bob's key was: " << bobFinalK.as_string() << "\n";
+				}
+			}
+			std::cout << "\n";
+			if (!errors){
+				printf("Timings Server: %lf sec (Average over %u runs)\n", (double)(sumServer/count), count);
+				printf("Timings Client: %lf sec (Average over %u runs)\n", (double)(sumClient/count), count);
+			} else
+				std::cout << "AAAHHHH...At least one error occurred during computations!\n";
 		}
-		else if (confKA2 == confVal){
-			keyGen(public_B, SbufA, alice_key2, &alice_key, &ivKey);
-		}
-		else
-			alice_key = OctetString("00");
-
-
-		clock_gettime(CLOCK_REALTIME, &stop);
-		accumA += (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
-		printf("TIMING: Alice: %lf sec\n", accumA);
-
-		if(alice_key == bobFinalK)
-		{
-			std::cout << "The two keys matched, everything worked\n";
-			std::cout << "The shared key was: " << alice_key.as_string() << "\n";
-		}
-		else
-		{
-			std::cout << "The two keys didn't match! Hmmm...\n";
-			std::cout << "Alice's key was: " << alice_key.as_string() << "\n";
-			std::cout << "Bob's key was: " << bobFinalK.as_string() << "\n";
-		}
-
 	}
 	catch(std::exception& e)
 	{
