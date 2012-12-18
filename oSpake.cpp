@@ -231,7 +231,6 @@ gcry_mpi_t* createIHMEResultSet(){
 SecureVector<byte> PRF(OctetString k, SecureVector<byte> sid, std::string indicator, InitializationVector *iv){
 	AutoSeeded_RNG rng;
 	SymmetricKey key = k; // use the BigInt as 256-bit key
-	std::cout << "iv.length: " << iv->length() <<"\n";
 	if (iv->length() == 0)
 		*iv = InitializationVector(rng, 16); // a random 128-bit IV
 
@@ -395,60 +394,33 @@ int main()
 
 		// Bob sends his public key to Alice
 		// include password here
-		BigInt public_b1BigInt = createMessate(private_b, pwd1Num, G, N); //private_b.get_y()*(power_mod(N, pwd1Num, G.get_p()));
+		BigInt public_b1BigInt = createMessate(private_b, pwd1Num, G, N);
 
 		// decode it again (Bob does)
 		// IHME decode
-		gcry_mpi_t encoded_public_A_MPI;
-		encoded_public_A_MPI = gcry_mpi_new(0);
-		gcry_mpi_t pwd1NumMPI;
+		gcry_mpi_t encoded_public_A_MPI, pwd1NumMPI;
 		BigIntToMpi(&pwd1NumMPI, pwd1Num);
+		encoded_public_A_MPI = gcry_mpi_new(0);
 		decode(encoded_public_A_MPI,S,pwd1NumMPI,NUM,p);
 		BigInt aEncodedMessageFromAlice = MpiToBigInt(encoded_public_A_MPI);
 
 		// admissible decode
-		BigInt bobs_public_A = aDecode(z, G, aEncodedMessageFromAlice); //power_mod(encoded_public_A1, z.a, G.get_p());
+		BigInt bobs_public_A = aDecode(z, G, aEncodedMessageFromAlice);
 
 		// compute k for bob
-//		BigInt MPW = power_mod(M, pwd1Num, G.get_p());
-//		BigInt KB = power_mod(bobs_public_A*(inverse_mod(MPW, G.get_p())), private_b.get_x(), G.get_p());
 		BigInt KB = computeKey(M, pwd1Num, bobs_public_A, private_b, G);
 
 		// Bob calculates the his keys:
 		OctetString bob_key = hashIt(session_param, bobs_public_A, public_b1BigInt, pwd1Num, KB);
 
 		// bob calculates hash value for confirmation
-//		std::string forConf = "0";
-//		std::string forKey = "1";
-//		SecureVector<byte> sidB = BigInt::encode(public_b1BigInt);
-//		// get S as byte vector
-//		unsigned char *buffer; size_t l; std::vector<byte> Sbuf;
-//		for (int i = 0; i < NUM; ++i) {
-//			gcry_mpi_aprint (GCRYMPI_FMT_USG, &buffer, &l, S[i]);
-//			Sbuf.insert(Sbuf.end(), buffer, buffer+l);
-//		}
-////		print_mpi("S[0]", S[0]);
-////		print_mpi("S[1]", S[1]);
-////		SecureVector<byte> sid = BigInt::encode(S);
-//		// build sid := S||B
-//		OctetString tmpSid(sidB);
-////		std::cout << "B: " << tmpSid.as_string() << "\n";
-//		Sbuf.insert(Sbuf.end(), tmpSid.begin(), tmpSid.begin()+tmpSid.length());
-////		std::cout << "---This is It: "; print_vector(&Sbuf); std::cout << "\n";
-////		std::cout << "sid: " << OctetString(sid).as_string() << "\n";
-//		SecureVector<byte> sid(&(Sbuf[0]), Sbuf.size());
-////		std::cout << "sid: " << OctetString(sid).as_string() << "\n";
-//		SecureVector<byte> conf = PRF(bob_key, sid, forConf);
-//		OctetString bob_key_2 = OctetString(PRF(bob_key, sid, forKey));
-
 		SecureVector<byte> confVal;
 		OctetString bobFinalK;
 		std::vector<byte> Sbuf = getSbuf(S);
-		OctetString public_A(BigInt::encode(bobs_public_A));
+		OctetString public_B(BigInt::encode(public_b1BigInt));
 		InitializationVector ivKey, ivConf;
-		keyGen(public_A, Sbuf, bob_key, &bobFinalK, &ivKey);
-		confGen(public_A, Sbuf, bob_key, &confVal, &ivConf);
-		std::cout << "confVal: " << OctetString(confVal).as_string() << "\n";
+		keyGen(public_B, Sbuf, bob_key, &bobFinalK, &ivKey);
+		confGen(public_B, Sbuf, bob_key, &confVal, &ivConf);
 
 		clock_gettime(CLOCK_REALTIME, &stop);
 		accum = (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
@@ -460,22 +432,17 @@ int main()
 
 		// Now Alice performs the key agreement operation
 		// compute keys for alice
-//		BigInt NPW = power_mod(N, pwd1Num, G.get_p());
-//		BigInt KA = power_mod(public_b1BigInt*(inverse_mod(NPW, G.get_p())), private_a.get_x(), G.get_p());
 		BigInt KA1 = computeKey(N, pwd1Num, public_b1BigInt, private_a, G);
 		BigInt KA2 = computeKey(N, pwd2Num, public_b1BigInt, private_a, G);
 		OctetString alice_key1 = hashIt(session_param, public_a1BigInt, public_b1BigInt, pwd1Num, KA1);
-		OctetString alice_key2 = hashIt(session_param, public_a1BigInt, public_b1BigInt, pwd1Num, KA2);
+		OctetString alice_key2 = hashIt(session_param, public_a2BigInt, public_b1BigInt, pwd2Num, KA2);
 
 		// check confirmation value and get correct key
 		SecureVector<byte> confKA1, confKA2;
-//		OctetString finalKA1, finalKA2;
 		std::vector<byte> SbufA = getSbuf(S);
-		OctetString public_B(BigInt::encode(public_b1BigInt));
+		public_B = OctetString(BigInt::encode(public_b1BigInt));
 		confGen(public_B, SbufA, alice_key1, &confKA1, &ivConf);
-		std::cout << "confKA1: " << OctetString(confKA1).as_string() << "\n";
-		confGen(public_B, SbufA, alice_key1, &confKA2, &ivConf);
-		std::cout << "confKA2: " << OctetString(confKA2).as_string() << "\n";
+		confGen(public_B, SbufA, alice_key2, &confKA2, &ivConf);
 		OctetString alice_key;
 		if (confKA1 == confVal){
 			keyGen(public_B, SbufA, alice_key1, &alice_key, &ivKey);
@@ -491,7 +458,7 @@ int main()
 		accumA += (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
 		printf("TIMING: Alice: %lf sec\n", accumA);
 
-		if(alice_key == bob_key)
+		if(alice_key == bobFinalK)
 		{
 			std::cout << "The two keys matched, everything worked\n";
 			std::cout << "The shared key was: " << alice_key.as_string() << "\n";
@@ -500,7 +467,7 @@ int main()
 		{
 			std::cout << "The two keys didn't match! Hmmm...\n";
 			std::cout << "Alice's key was: " << alice_key.as_string() << "\n";
-			std::cout << "Bob's key was: " << bob_key.as_string() << "\n";
+			std::cout << "Bob's key was: " << bobFinalK.as_string() << "\n";
 		}
 
 	}
