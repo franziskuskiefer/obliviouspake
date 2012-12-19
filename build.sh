@@ -1,6 +1,6 @@
 if [ $# -eq 0 ] 
 then
-	echo "Usage: $0 [client,server,dh,ospake]"
+	echo "Usage: $0 [client,server,dh,ospake,spake]"
 	exit 1
 elif [ $1 = 'client' ] 
 then
@@ -14,6 +14,9 @@ then
 elif [ $1 = 'ospake' ] 
 then
 	g++ oSpake.cpp IHME.c -pthread -lboost_system -lbotan-1.10 -lgnutls -lgcrypt -o ospake
+elif [ $1 = 'spake' ] 
+then
+	g++ Spake.cpp -pthread -lboost_system -lbotan-1.10 -o spake
 fi
 #g++ SPAKEClient.cpp -pthread -lboost_system -lbotan-1.10 -o spakeClient
 #g++ SPAKEServer.cpp -pthread -lboost_system -lbotan-1.10 -o spakeServer
