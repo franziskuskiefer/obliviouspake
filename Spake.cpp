@@ -15,9 +15,6 @@ using namespace Botan;
 
 #include <stdio.h>
 
-#define DEBUG 1
-#define NUM 2
-#define NU 2
 #define BILLION 1000000000L
 
 #include <iostream>
