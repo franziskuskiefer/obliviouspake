@@ -22,7 +22,6 @@ using namespace Botan;
 #include <math.h>
 
 #define DEBUG 1
-#define NUM 2
 #define NU 2
 #define BILLION 1000000000L
 
@@ -131,70 +130,6 @@ void addElement(struct point *P, int *pos, BigInt pwd, BigInt m){
 	++*pos;
 }
 
-void iEncode(gcry_mpi_t *S, struct point *P, DL_Group G){
-//	struct point P[NUM];
-	int i, k;
-	G.get_p();
-	gcry_mpi_t p;
-//	gcry_mpi_set
-
-	gcry_check_version("1.4.1");
-
-
-	p = gcry_mpi_new(0);
-	gcry_mpi_set_ui(p, 44189); //23
-
-	for(k = 0; k < NUM; k++)
-		initpoint(&P[k]);
-
-	gcry_mpi_set_ui(P[0].x, 2);
-	gcry_mpi_set_ui(P[0].y, 50); // 22
-
-	gcry_mpi_set_ui(P[1].x, 4);
-	gcry_mpi_set_ui(P[1].y, 3);
-
-	gcry_mpi_set_ui(P[2].x, 6);
-	gcry_mpi_set_ui(P[2].y, 1);
-
-	gcry_mpi_set_ui(P[3].x, 8);
-	gcry_mpi_set_ui(P[3].y, 2);
-
-	gcry_mpi_set_ui(P[4].x, 10);
-	gcry_mpi_set_ui(P[4].y, 7);
-
-	gcry_mpi_set_ui(P[5].x, 11);
-	gcry_mpi_set_ui(P[5].y, 7);
-
-	gcry_mpi_set_ui(P[6].x, 12);
-	gcry_mpi_set_ui(P[6].y, 7);
-
-//	c1 = calloc(NUM, sizeof(gcry_mpi_t));
-	for(k = 0; k < NUM; k++)
-		S[k] = gcry_mpi_new(0);
-
-	interpolation_alg2(S, P, NUM, p);
-
-	// Test Decoding
-//	test1 = gcry_mpi_new(0);
-//	decode(test1,c1,P[0].x,NUM,p);
-	//	print_mpi("P[0].y", P[0].y);
-	//	print_mpi("dec", test1);
-	//	decode(test1,c1,P[1].x,NUM,p);
-	//	print_mpi("P[1].y", P[1].y);
-	//	print_mpi("dec", test1);
-	//	decode(test1,c1,P[2].x,NUM,p);
-	//	print_mpi("P[2].y", P[2].y);
-	//	print_mpi("dec", test1);
-	//	decode(test1,c1,P[0].x,NUM,p);
-
-//	check_1 = gcry_mpi_cmp(P[0].y,test1);
-//	if (check_1 == 0) {
-//		printf("Encode/Decode-Test successful!\n");
-//	} else {
-//		printf("Encode/Decode-Test NOT successful!\n");
-//	}
-}
-
 BigInt pwdToBigInt(std::string pwd){
 	const byte* pwdB = (byte*)&pwd[0];
 	return BigInt::decode(pwdB, pwd.length(), BigInt::Binary);
@@ -220,10 +155,10 @@ BigInt aDecode(z_p_star z, DL_Group G, BigInt in){
 	return power_mod(in, z.a, G.get_p());
 }
 
-gcry_mpi_t* createIHMEResultSet(){
+gcry_mpi_t* createIHMEResultSet(int numPwds){
 	gcry_mpi_t *S;
-	S = (gcry_mpi_t*)calloc(NUM, sizeof(gcry_mpi_t));
-	for(int k = 0; k < NUM; k++)
+	S = (gcry_mpi_t*)calloc(numPwds, sizeof(gcry_mpi_t));
+	for(int k = 0; k < numPwds; k++)
 		S[k] = gcry_mpi_new(0);
 	return S;
 }
@@ -260,9 +195,9 @@ void print_vector(std::vector<byte> *vec){
 	}
 }
 
-std::vector<byte> getSbuf(gcry_mpi_t *S){
+std::vector<byte> getSbuf(gcry_mpi_t *S, int numPwds){
 	unsigned char *buffer; size_t l; std::vector<byte> Sbuf;
-	for (int i = 0; i < NUM; ++i) {
+	for (int i = 0; i < numPwds; ++i) {
 		gcry_mpi_aprint (GCRYMPI_FMT_USG, &buffer, &l, S[i]);
 		Sbuf.insert(Sbuf.end(), buffer, buffer+l);
 	}
@@ -323,15 +258,29 @@ BigInt computeKey(BigInt publicValue, BigInt pwd, BigInt publicKey, DH_PrivateKe
 	return power_mod(publicKey*(inverse_mod(NPW, G.get_p())), privateKey.get_x(), G.get_p());
 }
 
+void gen_random(char *s, const int len) {
+	static const char alphanum[] =
+			"0123456789"
+			"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+			"abcdefghijklmnopqrstuvwxyz";
+
+	for (int i = 0; i < len; ++i) {
+		s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
+	}
+
+	s[len] = 0;
+}
+
 int main(int argc, char* argv[])
 {
 	try
 	{
-		if (argc < 2)
-			std::cout << "Usage: ./ospake <numRuns>\n";
+		if (argc < 3)
+			std::cout << "Usage: ./ospake <numRuns> <numPwds>\n";
 		else {
 			double sumServer = 0, sumClient = 0;
 			int count = atoi(argv[1]);
+			int numPwds = atoi(argv[2]);
 			bool errors = false;
 			for (int cnt = 0; cnt < count; ++cnt){
 				std::cout << ".." << std::flush;
@@ -354,40 +303,59 @@ int main(int argc, char* argv[])
 
 				const std::string session_param = "Alice and Bob's shared session parameter";
 
+				// generate numPwds random passwords
+				std::vector<std::string> passwords;
+				const int pwdLength = 9;
+				for (int var = 0; var < numPwds; ++var) {
+					char pwd[pwdLength];
+					gen_random(pwd, pwdLength);
+					passwords.insert(passwords.end(), pwd);
+				}
+
 				// Alice creates a DH key
 				clock_gettime(CLOCK_REALTIME, &start);
+
+				// generate private key for Alice
 				DH_PrivateKey private_a(rng, G);
-
-				// Alice sends to Bob her public key and a session parameter
-				// include password here
-				BigInt pwd1Num = pwdToBigInt("Password1");
-				BigInt pwd2Num = pwdToBigInt("Password2");
-
-				BigInt public_a1BigInt = createMessate(private_a, pwd1Num, G, M);
-				BigInt public_a2BigInt = createMessate(private_a, pwd2Num, G, M);
-
-				///////////////////////////////////////////////////////////////////
-				// XXX: here the interesting stuff happens.....
 
 				// generate admissible encoding parameters
 				z_p_star z = generate_Z(G);
 
-				// encode the client's (Alice) messages
-				BigInt encoded_public_A1 = aEncode(z, G, public_a1BigInt);
-				BigInt encoded_public_A2 = aEncode(z, G, public_a2BigInt);
-
-				// add IHME to the admissible encoded values
-				struct point P[NUM];
+				// IHME structure stuff
+				struct point P[numPwds];
 				gcry_mpi_t *S;
-				for (int k = 0; k < NUM; k++)
+				for (int k = 0; k < numPwds; k++)
 					initpoint(&P[k]);
 				int pos = 0;
-				addElement(P, &pos, pwd1Num, encoded_public_A1);
-				addElement(P, &pos, pwd2Num, encoded_public_A2);
-				S = createIHMEResultSet();
+				S = createIHMEResultSet(numPwds);
 				gcry_mpi_t p;
 				BigIntToMpi(&p, G.get_p());
-				interpolation_alg2(S, P, NUM, p);
+
+				// Alice sends to Bob her public key and a session parameter
+				// include password here
+				std::vector<BigInt> passwordVector;
+				std::vector<BigInt> publicAvector;
+				std::vector<BigInt> encoded_public_A_vector;
+				for (int var = 0; var < numPwds; ++var) {
+					// convert password to Z_N
+					BigInt pwdBigInt = pwdToBigInt(passwords.at(var));
+					passwordVector.insert(passwordVector.end(), pwdBigInt);
+
+					// compute Alice' public value for current pwd
+					BigInt public_A = createMessate(private_a, pwdBigInt, G, M);
+					publicAvector.insert(publicAvector.end(), public_A);
+
+					// encode the client's (Alice) messages (admissible encoding)
+					BigInt encoded_public_A = aEncode(z, G, public_A);
+					encoded_public_A_vector.insert(encoded_public_A_vector.end(), encoded_public_A);
+
+					// add IHME to the admissible encoded values
+					addElement(P, &pos, pwdBigInt, encoded_public_A);
+				}
+
+				// compute IHME structure S from P with NUM passwords and modulus p
+				interpolation_alg2(S, P, numPwds, p);
+
 				//XXX: Alice outputs S and sends it to Bob /////////////////////
 
 				clock_gettime(CLOCK_REALTIME, &stop);
@@ -402,29 +370,31 @@ int main(int argc, char* argv[])
 
 				// Bob sends his public key to Alice
 				// include password here
-				BigInt public_b1BigInt = createMessate(private_b, pwd1Num, G, N);
+				// FIXME: choose random password for Server
+				BigInt serverPwd = passwordVector.at(1);
+				BigInt public_b1BigInt = createMessate(private_b, serverPwd, G, N);
 
 				// decode it again (Bob does)
 				// IHME decode
-				gcry_mpi_t encoded_public_A_MPI, pwd1NumMPI;
-				BigIntToMpi(&pwd1NumMPI, pwd1Num);
+				gcry_mpi_t encoded_public_A_MPI, serverPwdNumMPI;
+				BigIntToMpi(&serverPwdNumMPI, serverPwd);
 				encoded_public_A_MPI = gcry_mpi_new(0);
-				decode(encoded_public_A_MPI,S,pwd1NumMPI,NUM,p);
+				decode(encoded_public_A_MPI,S,serverPwdNumMPI,numPwds,p);
 				BigInt aEncodedMessageFromAlice = MpiToBigInt(encoded_public_A_MPI);
 
 				// admissible decode
 				BigInt bobs_public_A = aDecode(z, G, aEncodedMessageFromAlice);
 
 				// compute k for bob
-				BigInt KB = computeKey(M, pwd1Num, bobs_public_A, private_b, G);
+				BigInt KB = computeKey(M, serverPwd, bobs_public_A, private_b, G);
 
 				// Bob calculates the his keys:
-				OctetString bob_key = hashIt(session_param, bobs_public_A, public_b1BigInt, pwd1Num, KB);
+				OctetString bob_key = hashIt(session_param, bobs_public_A, public_b1BigInt, serverPwd, KB);
 
 				// bob calculates hash value for confirmation
 				SecureVector<byte> confVal;
 				OctetString bobFinalK;
-				std::vector<byte> Sbuf = getSbuf(S);
+				std::vector<byte> Sbuf = getSbuf(S, numPwds);
 				OctetString public_B(BigInt::encode(public_b1BigInt));
 				InitializationVector ivKey, ivConf;
 				keyGen(public_B, Sbuf, bob_key, &bobFinalK, &ivKey);
@@ -440,37 +410,37 @@ int main(int argc, char* argv[])
 				// XXX: Second part Alice: compute keys ///////////////////////
 				clock_gettime(CLOCK_REALTIME, &start);
 
+				// buffer for sid -> confirmation computation
+				std::vector<byte> SbufA = getSbuf(S, numPwds);
+
+				// decodes Bobs message
+				public_B = OctetString(BigInt::encode(public_b1BigInt));
+
+				// Alice' final key
+				OctetString alice_final_key;
+
 				// Now Alice performs the key agreement operation
 				// compute keys for alice
-				BigInt KA1 = computeKey(N, pwd1Num, public_b1BigInt, private_a, G);
-				BigInt KA2 = computeKey(N, pwd2Num, public_b1BigInt, private_a, G);
-				OctetString alice_key1 = hashIt(session_param, public_a1BigInt, public_b1BigInt, pwd1Num, KA1);
-				OctetString alice_key2 = hashIt(session_param, public_a2BigInt, public_b1BigInt, pwd2Num, KA2);
+				for (int var = 0; var < numPwds; ++var) {
+					// compute Alice' key for every password
+					BigInt KA = computeKey(N, passwordVector.at(var), public_b1BigInt, private_a, G);
+					OctetString alice_key = hashIt(session_param, publicAvector.at(var), public_b1BigInt, passwordVector.at(var), KA);
 
-				// check confirmation value and get correct key
-				SecureVector<byte> confKA1, confKA2;
-				std::vector<byte> SbufA = getSbuf(S);
-				public_B = OctetString(BigInt::encode(public_b1BigInt));
-				confGen(public_B, SbufA, alice_key1, &confKA1, &ivConf);
-				confGen(public_B, SbufA, alice_key2, &confKA2, &ivConf);
-				OctetString alice_key;
-				if (confKA1 == confVal){
-					keyGen(public_B, SbufA, alice_key1, &alice_key, &ivKey);
-				}
-				else if (confKA2 == confVal){
-					keyGen(public_B, SbufA, alice_key2, &alice_key, &ivKey);
-				}
-				else
-					alice_key = OctetString("00");
+					// generate confirmation message for every computed key
+					SecureVector<byte> confKA;
+					confGen(public_B, SbufA, alice_key, &confKA, &ivConf);
 
+					if (confKA == confVal){
+						keyGen(public_B, SbufA, alice_key, &alice_final_key, &ivKey);
+						break; // XXX: we can stop when we found the correct key; Problem: Side-Channel Attacks
+					}
+				}
 
 				clock_gettime(CLOCK_REALTIME, &stop);
 				accumA += (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
-				//		printf("TIMING: Alice: %lf sec\n", accumA);
-//				printf("%lf\n", accumA);
 				sumClient += accumA;
 
-				if(alice_key == bobFinalK)
+				if(alice_final_key == bobFinalK)
 				{
 //					std::cout << "The two keys matched, everything worked\n";
 //					std::cout << "The shared key was: " << alice_key.as_string() << "\n";
@@ -485,8 +455,8 @@ int main(int argc, char* argv[])
 			}
 			std::cout << "\n";
 			if (!errors){
-				printf("Timings Server: %lf sec (Average over %u runs)\n", (double)(sumServer/count), count);
-				printf("Timings Client: %lf sec (Average over %u runs)\n", (double)(sumClient/count), count);
+				printf("Timings Server: %lf sec (Average over %u runs on %u passwords)\n", (double)(sumServer/count), count, numPwds);
+				printf("Timings Client: %lf sec (Average over %u runs on %u passwords)\n", (double)(sumClient/count), count, numPwds);
 			} else
 				std::cout << "AAAHHHH...At least one error occurred during computations!\n";
 		}
