@@ -5,6 +5,9 @@
  *      Author: franziskus
  */
 
+// TODO: Header ausmisten
+// TODO: Hash PRF input
+
 // Botan stuff
 #include <botan/botan.h>
 #include <botan/dh.h>
@@ -28,12 +31,14 @@ using namespace Botan;
 #include <iostream>
 #include <memory>
 
+// Structure to store necessary parameters of Z*_p
 struct z_p_star {
 	BigInt p;
 	BigInt a;
 	BigInt g;
 };
 
+// generate the z_p_star structure for a DL group G
 z_p_star generate_Z(DL_Group G){
 	// generate p' = a*p+1
 	BigInt q = G.get_q(); // 2047 bit
@@ -63,50 +68,35 @@ z_p_star generate_Z(DL_Group G){
 	return result;
 }
 
+// utility function for mpi printing
 static void print_mpi (const char *name, gcry_mpi_t a) {
-	gcry_error_t err;
 	unsigned char *buf;
-//	int writerr = 0;
 
-	err = gcry_mpi_aprint (GCRYMPI_FMT_HEX, &buf, NULL, a);
-//	if (err)
-//		printf("gcry_mpi_aprint failed: %s\n", gcry_strerror (err));
+	gcry_mpi_aprint (GCRYMPI_FMT_HEX, &buf, NULL, a);
 
 	printf ("%s: %s\n", name, buf);
-//	if (ferror (stdout))
-//		writerr++;
-//	if (!writerr && fflush (stdout) == EOF)
-//		writerr++;
-//	if (writerr)
-//		printf("writing output failed\n");
 	gcry_free (buf);
 }
 
+// utility function to convert a Botan BigInt to a gcrypt mpi
 void BigIntToMpi(gcry_mpi_t *mpiResult, BigInt in){
 	SecureVector<byte> tmp = BigInt::encode(in);
 	*mpiResult = gcry_mpi_new(0);
 	size_t nscanned;
 	gcry_mpi_scan(mpiResult, GCRYMPI_FMT_USG, tmp.begin(), tmp.size(), &nscanned);
-
-//	std::cout << "Original: " << std::hex << in << "\n";
-//	print_mpi("mpi", mpiResult);
 }
 
+// utility function to convert a gcrypt mpi to a Botan BigInt
 BigInt MpiToBigInt(gcry_mpi_t in){
 	unsigned char *buf;
 	gcry_mpi_aprint (GCRYMPI_FMT_USG, &buf, NULL, in);
-//	std::cout << "gcry_mpi_get_nbits(in): " << ceil((double)gcry_mpi_get_nbits(in)) << "\n";
-//	std::cout << "gcry_mpi_get_nbits(in)/8: " << ceil((double)gcry_mpi_get_nbits(in)/8) << "\n";
-//	print_mpi("mpiToBigInt", in);
 	BigInt bigIntResult = BigInt::decode(buf, ceil((double)gcry_mpi_get_nbits(in)/8), BigInt::Binary);
 	gcry_free (buf);
-
-//	std::cout << "converted: " << std::hex << bigIntResult << "\n";
-//	print_mpi("original mpi", in);
 
 	return bigIntResult;
 }
 
+// key generation hashing with SHA 256
 OctetString hashIt(std::string params, BigInt A, BigInt B, BigInt pwd, BigInt K){
 	SHA_256 h;
 	h.update(params);
@@ -117,6 +107,7 @@ OctetString hashIt(std::string params, BigInt A, BigInt B, BigInt pwd, BigInt K)
 	return OctetString(h.final());
 }
 
+// add an element to the IHME encode input structure P
 void addElement(struct point *P, int *pos, BigInt pwd, BigInt m){
 	// convert BigInts to MPIs
 	gcry_mpi_t pwdMpi;
@@ -130,18 +121,18 @@ void addElement(struct point *P, int *pos, BigInt pwd, BigInt m){
 	++*pos;
 }
 
+// convert a string (the password here) to a Botan BigInt
 BigInt pwdToBigInt(std::string pwd){
 	const byte* pwdB = (byte*)&pwd[0];
 	return BigInt::decode(pwdB, pwd.length(), BigInt::Binary);
 }
 
+// create the output message of SPAKE (g^x*M^pwd mod p)
 BigInt createMessate(DH_PrivateKey privateKey, BigInt pwd, DL_Group G, BigInt M){
 	return (privateKey.get_y()*(power_mod(M, pwd, G.get_p()))) % G.get_p();
 }
 
-/*
- * The admissible encoding function for one group element of G
- */
+// The admissible encoding function for one group element of G
 BigInt aEncode(z_p_star z, DL_Group G, BigInt in){
 	AutoSeeded_RNG rng;
 	BigInt gpowq = power_mod(z.g, G.get_q(), z.p);
@@ -151,10 +142,12 @@ BigInt aEncode(z_p_star z, DL_Group G, BigInt in){
 	return (gpowqr*mpowainv) % z.p;
 }
 
+// admissible decoding for a group element of G
 BigInt aDecode(z_p_star z, DL_Group G, BigInt in){
 	return power_mod(in, z.a, G.get_p());
 }
 
+// initializes an IHME result set S (output of IHME encode function)
 gcry_mpi_t* createIHMEResultSet(int numPwds){
 	gcry_mpi_t *S;
 	S = (gcry_mpi_t*)calloc(numPwds, sizeof(gcry_mpi_t));
@@ -163,6 +156,7 @@ gcry_mpi_t* createIHMEResultSet(int numPwds){
 	return S;
 }
 
+// simulating a keyed PRF as AES encryption of the input
 SecureVector<byte> PRF(OctetString k, SecureVector<byte> sid, std::string indicator, InitializationVector *iv){
 	AutoSeeded_RNG rng;
 	SymmetricKey key = k; // use the BigInt as 256-bit key
@@ -172,29 +166,21 @@ SecureVector<byte> PRF(OctetString k, SecureVector<byte> sid, std::string indica
 	Pipe pipe(get_cipher("AES-256/CBC", key, *iv, ENCRYPTION));
 
 	std::string toEnc = OctetString(sid).as_string()+indicator;
-//	std::cout << "toEnc: " << toEnc << "\n";
 	pipe.process_msg(toEnc);
 
 	SecureVector<byte> out = pipe.read_all(0);
-//	std::cout << "encrypted: " << OctetString(out).as_string() << "\n";
 
 	return out;
-
-	// FIXME: testing decryption here
-//	Pipe pipe2(get_cipher("AES-256/CBC", key, iv, DECRYPTION));
-//
-//	pipe2.process_msg(out);
-//
-//	std::string decrypted = pipe2.read_all_as_string(0);
-//	std::cout << "dec: " << decrypted << "\n";
 }
 
+// utility function to print a byte vector
 void print_vector(std::vector<byte> *vec){
 	for(int i = 0; i < vec->size();i++){
 		printf("%02X", vec->at(i));
 	}
 }
 
+// utility function: create a buffer for S conversion
 std::vector<byte> getSbuf(gcry_mpi_t *S, int numPwds){
 	unsigned char *buffer; size_t l; std::vector<byte> Sbuf;
 	for (int i = 0; i < numPwds; ++i) {
@@ -204,60 +190,31 @@ std::vector<byte> getSbuf(gcry_mpi_t *S, int numPwds){
 	return Sbuf;
 }
 
+// generate the final key of OSpake
 void keyGen(OctetString B, std::vector<byte> Sbuf, OctetString K, OctetString *finalK, InitializationVector *iv){
-//	std::string forConf = "0";
 	std::string forKey = "1";
-//	SecureVector<byte> sidB = BigInt::encode(B);
 	// get S as byte vector
-//	unsigned char *buffer; size_t l; std::vector<byte> Sbuf;
-//	for (int i = 0; i < NUM; ++i) {
-//		gcry_mpi_aprint (GCRYMPI_FMT_USG, &buffer, &l, S[i]);
-//		Sbuf.insert(Sbuf.end(), buffer, buffer+l);
-//	}
-	//		print_mpi("S[0]", S[0]);
-	//		print_mpi("S[1]", S[1]);
-	//		SecureVector<byte> sid = BigInt::encode(S);
-	// build sid := S||B
-//	OctetString tmpSid(sidB);
-	//		std::cout << "B: " << tmpSid.as_string() << "\n";
 	Sbuf.insert(Sbuf.end(), B.begin(), B.begin()+B.length());
-	//		std::cout << "---This is It: "; print_vector(&Sbuf); std::cout << "\n";
-	//		std::cout << "sid: " << OctetString(sid).as_string() << "\n";
 	SecureVector<byte> sid(&(Sbuf[0]), Sbuf.size());
-	//		std::cout << "sid: " << OctetString(sid).as_string() << "\n";
-//	*conf = PRF(K, sid, forConf, iv);
 	*finalK = OctetString(PRF(K, sid, forKey, iv));
 }
 
+// generate server confirmation message of OSpake
 void confGen(OctetString B, std::vector<byte> Sbuf, OctetString K, SecureVector<byte> *conf, InitializationVector *iv){
 	std::string forConf = "0";
-//	std::string forKey = "1";
-	//	SecureVector<byte> sidB = BigInt::encode(B);
 	// get S as byte vector
-	//	unsigned char *buffer; size_t l; std::vector<byte> Sbuf;
-	//	for (int i = 0; i < NUM; ++i) {
-	//		gcry_mpi_aprint (GCRYMPI_FMT_USG, &buffer, &l, S[i]);
-	//		Sbuf.insert(Sbuf.end(), buffer, buffer+l);
-	//	}
-	//		print_mpi("S[0]", S[0]);
-	//		print_mpi("S[1]", S[1]);
-	//		SecureVector<byte> sid = BigInt::encode(S);
-	// build sid := S||B
-	//	OctetString tmpSid(sidB);
-	//		std::cout << "B: " << tmpSid.as_string() << "\n";
 	Sbuf.insert(Sbuf.end(), B.begin(), B.begin()+B.length());
-	//		std::cout << "---This is It: "; print_vector(&Sbuf); std::cout << "\n";
-	//		std::cout << "sid: " << OctetString(sid).as_string() << "\n";
 	SecureVector<byte> sid(&(Sbuf[0]), Sbuf.size());
-	//		std::cout << "sid: " << OctetString(sid).as_string() << "\n";
 	*conf = PRF(K, sid, forConf, iv);
 }
 
+// compute the SPAKE key
 BigInt computeKey(BigInt publicValue, BigInt pwd, BigInt publicKey, DH_PrivateKey privateKey, DL_Group G){
 	BigInt NPW = power_mod(publicValue, pwd, G.get_p());
 	return power_mod(publicKey*(inverse_mod(NPW, G.get_p())), privateKey.get_x(), G.get_p());
 }
 
+// utility function to generate random passwords
 void gen_random(char *s, const int len) {
 	static const char alphanum[] =
 			"0123456789"
@@ -271,6 +228,7 @@ void gen_random(char *s, const int len) {
 	s[len] = 0;
 }
 
+// this is it!
 int main(int argc, char* argv[])
 {
 	try
@@ -402,8 +360,6 @@ int main(int argc, char* argv[])
 
 				clock_gettime(CLOCK_REALTIME, &stop);
 				accum = (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
-				//		printf("TIMING: Bob: %lf sec\n", accum);
-//				printf("Timings: %lf ", accum);
 				sumServer += accum;
 				///////////////////////////////////////////////////////////////////////////////////////////////////
 

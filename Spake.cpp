@@ -122,17 +122,11 @@ int main(int argc, char* argv[])
 				accumA += (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
 				sumClient += accumA;
 
-				if(alice_key == bob_key)
-				{
-//					std::cout << "The two keys matched, everything worked\n";
-//					std::cout << "The shared key was: " << alice_key.as_string() << "\n";
+				if(alice_key == bob_key) {
+					// nothing to do here....
 				}
-				else
-				{
+				else { // store error for further use
 					errors = true;
-//					std::cout << "The two keys didn't match! Hmmm...\n";
-//					std::cout << "Alice's key was: " << alice_key.as_string() << "\n";
-//					std::cout << "Bob's key was: " << bob_key.as_string() << "\n";
 				}
 			}
 			std::cout << "\n";
