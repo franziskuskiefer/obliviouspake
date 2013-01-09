@@ -1,0 +1,5 @@
+# Makefile configuration
+LIB_NAME=libihme.so
+LIB_MAJOR_VERSION=.1
+LIB_MINOR_VERSION=.0
+LIB_BUILD_VERSION=.0
