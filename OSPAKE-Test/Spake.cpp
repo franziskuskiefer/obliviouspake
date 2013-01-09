@@ -35,7 +35,7 @@ BigInt pwdToBigInt(std::string pwd){
 	return BigInt::decode(pwdB, pwd.length(), BigInt::Binary);
 }
 
-BigInt createMessate(DH_PrivateKey privateKey, BigInt pwd, DL_Group G, BigInt M){
+BigInt createMessage(DH_PrivateKey privateKey, BigInt pwd, DL_Group G, BigInt M){
 	return (privateKey.get_y()*(power_mod(M, pwd, G.get_p()))) % G.get_p();
 }
 
@@ -83,7 +83,7 @@ int main(int argc, char* argv[])
 				// include password here
 				BigInt pwd1Num = pwdToBigInt("Password1");
 
-				BigInt public_a1BigInt = createMessate(private_a, pwd1Num, G, M);
+				BigInt public_a1BigInt = createMessage(private_a, pwd1Num, G, M);
 				//XXX: Alice outputs public_a1BigInt and sends it to Bob /////////////////////
 
 				clock_gettime(CLOCK_REALTIME, &stop);
@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
 
 				// Bob sends his public key to Alice
 				// include password here
-				BigInt public_b1BigInt = createMessate(private_b, pwd1Num, G, N);
+				BigInt public_b1BigInt = createMessage(private_b, pwd1Num, G, N);
 
 				// compute k for bob
 				BigInt KB = computeKey(M, pwd1Num, public_a1BigInt, private_b, G);

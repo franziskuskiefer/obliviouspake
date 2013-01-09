@@ -128,7 +128,7 @@ BigInt pwdToBigInt(std::string pwd){
 }
 
 // create the output message of SPAKE (g^x*M^pwd mod p)
-BigInt createMessate(DH_PrivateKey privateKey, BigInt pwd, DL_Group G, BigInt M){
+BigInt createMessage(DH_PrivateKey privateKey, BigInt pwd, DL_Group G, BigInt M){
 	return (privateKey.get_y()*(power_mod(M, pwd, G.get_p()))) % G.get_p();
 }
 
@@ -300,7 +300,7 @@ int main(int argc, char* argv[])
 					passwordVector.insert(passwordVector.end(), pwdBigInt);
 
 					// compute Alice' public value for current pwd
-					BigInt public_A = createMessate(private_a, pwdBigInt, G, M);
+					BigInt public_A = createMessage(private_a, pwdBigInt, G, M);
 					publicAvector.insert(publicAvector.end(), public_A);
 
 					// encode the client's (Alice) messages (admissible encoding)
@@ -330,7 +330,7 @@ int main(int argc, char* argv[])
 				// include password here
 				// FIXME: choose random password for Server
 				BigInt serverPwd = passwordVector.at(1);
-				BigInt public_b1BigInt = createMessate(private_b, serverPwd, G, N);
+				BigInt public_b1BigInt = createMessage(private_b, serverPwd, G, N);
 
 				// decode it again (Bob does)
 				// IHME decode
