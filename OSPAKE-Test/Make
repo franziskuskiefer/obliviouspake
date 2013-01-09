@@ -1,0 +1,3 @@
+CC=g++
+CFLAGS=
+LDFLAGS=~/lib/Botan-1.10.3/
