@@ -41,6 +41,7 @@ class CramerShoup {
 private:
 	Botan::AutoSeeded_RNG rng;
 	KeyPair kp;
+	Botan::BigInt r;
 
 public:
 	CramerShoup();
@@ -49,9 +50,18 @@ public:
 	void keyGen(Botan::DL_Group);
 	Ciphertext encrypt(Botan::BigInt); // message has to be element from G
 	Botan::BigInt decrypt(Ciphertext);
+	static Botan::BigInt hashIt(Botan::BigInt, Botan::BigInt, Botan::BigInt);
 
 	~CramerShoup(){
 		// nothing here yet...
+	}
+
+	const KeyPair& getKp() const {
+		return kp;
+	}
+
+	const Botan::BigInt& getR() const {
+		return r;
 	}
 };
 

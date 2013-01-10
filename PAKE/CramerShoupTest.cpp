@@ -6,6 +6,7 @@
  */
 
 #include "RG/CramerShoup.h"
+#include "RG/CramerShoupSPHash.h"
 
 int main(int argc, char **argv) {
 	// init Botan
@@ -32,6 +33,25 @@ int main(int argc, char **argv) {
 		std::cout << "Successful Enc-Dec Test :)\n";
 	} else {
 		std::cout << ":( Something went wrong...\n" << "Original: " << m << "\nDecrypted: " << m2 << "\n";
+	}
+
+	// init according SPHash
+	CramerShoupSPHash hash;
+	hash.keyGen(cs.getKp().pk);
+
+	Botan::BigInt s = hash.project(c);
+	X x;
+	x.c = c;
+	x.m = m;
+	Botan::BigInt h = hash.hash(x);
+
+	Botan::BigInt r = cs.getR();
+	Botan::BigInt checkHash = Botan::power_mod(s, r, G.get_p());
+
+	if (checkHash == h){
+		std::cout << "Successful SP-Hash Test :)\n";
+	} else {
+		std::cout << ":( Something went wrong...\n" << "CheckValue: " << checkHash << "\nHash: " << h << "\n";
 	}
 }
 

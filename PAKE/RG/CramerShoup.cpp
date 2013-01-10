@@ -45,7 +45,7 @@ void CramerShoup::keyGen(Botan::DL_Group G) {
 }
 
 // FIXME: is this correct?
-Botan::BigInt hashIt(Botan::BigInt u1, Botan::BigInt u2, Botan::BigInt e){
+Botan::BigInt CramerShoup::hashIt(Botan::BigInt u1, Botan::BigInt u2, Botan::BigInt e){
 	Botan::SHA_256 h;
 	h.update(Botan::BigInt::encode(u1));
 	h.update(Botan::BigInt::encode(u2));
@@ -57,14 +57,14 @@ Ciphertext CramerShoup::encrypt(Botan::BigInt m) {
 	Ciphertext c;
 
 	// get the randomness
-	Botan::BigInt r = Botan::BigInt::random_integer(this->rng, 0, this->kp.pk.G.get_q());
+	this->r = Botan::BigInt::random_integer(this->rng, 0, this->kp.pk.G.get_q());
 
 	// do the calculations
-	c.u1 = Botan::power_mod(this->kp.pk.G.get_g(), r, this->kp.pk.G.get_p());
-	c.u2 = Botan::power_mod(this->kp.pk.g2, r, this->kp.pk.G.get_p());
-	c.e = (Botan::power_mod(this->kp.pk.h, r, this->kp.pk.G.get_p())*m) % this->kp.pk.G.get_p();
+	c.u1 = Botan::power_mod(this->kp.pk.G.get_g(), this->r, this->kp.pk.G.get_p());
+	c.u2 = Botan::power_mod(this->kp.pk.g2, this->r, this->kp.pk.G.get_p());
+	c.e = (Botan::power_mod(this->kp.pk.h, this->r, this->kp.pk.G.get_p())*m) % this->kp.pk.G.get_p();
 	Botan::BigInt tmp = hashIt(c.u1, c.u2, c.e);
-	c.v = (Botan::power_mod(this->kp.pk.c, r, this->kp.pk.G.get_p())*Botan::power_mod(this->kp.pk.d, r*tmp, this->kp.pk.G.get_p())) % this->kp.pk.G.get_p();
+	c.v = (Botan::power_mod(this->kp.pk.c, this->r, this->kp.pk.G.get_p())*Botan::power_mod(this->kp.pk.d, r*tmp, this->kp.pk.G.get_p())) % this->kp.pk.G.get_p();
 
 	return c;
 }
