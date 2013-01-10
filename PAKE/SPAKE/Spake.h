@@ -31,7 +31,7 @@ public:
 
 	~Spake(){
 		// nothing here yet...
-	};
+	}
 };
 
 #endif /* SPAKE_H_ */
