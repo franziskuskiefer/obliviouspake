@@ -26,6 +26,9 @@ private:
 	ROLE r;
 	key k;
 
+	Ciphertext c1, c2;
+	Botan::BigInt s1, s2, sk1, sk2;
+
 public:
 	RG_DDH(Botan::DL_Group*, std::string, PublicKey* = 0);
 

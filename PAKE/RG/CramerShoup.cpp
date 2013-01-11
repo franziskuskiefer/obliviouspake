@@ -86,7 +86,7 @@ Botan::BigInt CramerShoup::decrypt(Ciphertext c, std::string l) {
 	return m;
 }
 
-void addBigInt(Botan::BigInt toAdd, std::vector<Botan::byte> *vec){
+void CramerShoup::addBigInt(Botan::BigInt toAdd, std::vector<Botan::byte> *vec) {
 	Botan::SecureVector<Botan::byte> in = Botan::BigInt::encode(toAdd);
 	size_t size = in.size();
 	for(size_t j = 0; j != sizeof(size_t); j++){
@@ -121,23 +121,6 @@ Botan::OctetString CramerShoup::encodeCiphertext(Ciphertext c){
 	addBigInt(c.u2, &tmp);
 	addBigInt(c.e, &tmp);
 	addBigInt(c.v, &tmp);
-
-//	Botan::SecureVector<Botan::byte> ee = Botan::BigInt::encode(c.e);
-//	Botan::SecureVector<Botan::byte> eu1 = Botan::BigInt::encode(c.u1);
-//	Botan::SecureVector<Botan::byte> eu2 = Botan::BigInt::encode(c.u2);
-//	Botan::SecureVector<Botan::byte> ev = Botan::BigInt::encode(c.v);
-//
-//	size_t size = ee.size();
-//	for(size_t j = 0; j != sizeof(size_t); j++){
-//		tmp.push_back(Botan::get_byte(j, size));
-//	}
-//	tmp.insert(tmp.end(), ee.begin(), ee.begin()+size);
-
-	// XXX: Test output
-//	for( std::vector<Botan::byte>::const_iterator i = tmp.begin(); i != tmp.end(); ++i)
-//		std::cout << std::hex << (int)*i;
-//	std::cout << "\n";
-	///////
 
 	Botan::OctetString encoded(reinterpret_cast<const Botan::byte*>(&tmp[0]), tmp.size());
 

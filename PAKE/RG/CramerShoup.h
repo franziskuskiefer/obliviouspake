@@ -55,6 +55,7 @@ public:
 	static Botan::BigInt hashIt(Botan::BigInt, Botan::BigInt, Botan::BigInt, std::string = "");
 	static Botan::OctetString encodeCiphertext(Ciphertext);
 	static Ciphertext decodeCiphertext(Botan::OctetString);
+	static void addBigInt(Botan::BigInt, std::vector<Botan::byte>*);
 
 	~CramerShoup(){
 		// nothing here yet...
