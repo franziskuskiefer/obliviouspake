@@ -22,10 +22,10 @@ void CramerShoupSPHash::keyGen(PublicKey pk) {
 	this->k.d = Botan::BigInt::random_integer(this->rng, 0, pk.G.get_q());
 }
 
-Botan::BigInt CramerShoupSPHash::project(Ciphertext c) {
+Botan::BigInt CramerShoupSPHash::project(Ciphertext c, std::string l) {
 	Botan::BigInt s;
 
-	Botan::BigInt hash = CramerShoup::hashIt(c.u1, c.u2, c.e);
+	Botan::BigInt hash = CramerShoup::hashIt(c.u1, c.u2, c.e, l);
 
 	s =
 		(Botan::power_mod(this->pk.G.get_g(), this->k.a, this->pk.G.get_p())

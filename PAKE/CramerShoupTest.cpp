@@ -23,10 +23,10 @@ int main(int argc, char **argv) {
 	cs.keyGen(G);
 
 	// encrypt m
-	Ciphertext c = cs.encrypt(m);
+	Ciphertext c = cs.encrypt(m, "blablablub");
 
 	// decrypt c
-	Botan::BigInt m2 = cs.decrypt(c);
+	Botan::BigInt m2 = cs.decrypt(c, "blablablub");
 
 	// check
 	if (m2 == m) {
@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
 	CramerShoupSPHash hash;
 	hash.keyGen(cs.getKp().pk);
 
-	Botan::BigInt s = hash.project(c);
+	Botan::BigInt s = hash.project(c, "blablablub");
 	X x;
 	x.c = c;
 	x.m = m;

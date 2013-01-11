@@ -48,9 +48,13 @@ public:
 	CramerShoup(KeyPair);
 	CramerShoup(PublicKey);
 	void keyGen(Botan::DL_Group);
-	Ciphertext encrypt(Botan::BigInt); // message has to be element from G
-	Botan::BigInt decrypt(Ciphertext);
-	static Botan::BigInt hashIt(Botan::BigInt, Botan::BigInt, Botan::BigInt);
+
+	Ciphertext encrypt(Botan::BigInt, std::string = ""); // message has to be element from G and the label a string
+	Botan::BigInt decrypt(Ciphertext, std::string = "");
+
+	static Botan::BigInt hashIt(Botan::BigInt, Botan::BigInt, Botan::BigInt, std::string = "");
+	static Botan::OctetString encodeCiphertext(Ciphertext);
+	static Ciphertext decodeCiphertext(Botan::OctetString);
 
 	~CramerShoup(){
 		// nothing here yet...
@@ -58,6 +62,10 @@ public:
 
 	const KeyPair& getKp() const {
 		return kp;
+	}
+
+	void setKp(const KeyPair& kp) {
+		this->kp = kp;
 	}
 
 	const Botan::BigInt& getR() const {

@@ -7,6 +7,7 @@
 
 
 #include "CramerShoup.h"
+#include <sstream>
 
 CramerShoup::CramerShoup() {}
 
@@ -45,15 +46,16 @@ void CramerShoup::keyGen(Botan::DL_Group G) {
 }
 
 // FIXME: is this correct?
-Botan::BigInt CramerShoup::hashIt(Botan::BigInt u1, Botan::BigInt u2, Botan::BigInt e){
+Botan::BigInt CramerShoup::hashIt(Botan::BigInt u1, Botan::BigInt u2, Botan::BigInt e, std::string l){
 	Botan::SHA_256 h;
 	h.update(Botan::BigInt::encode(u1));
 	h.update(Botan::BigInt::encode(u2));
 	h.update(Botan::BigInt::encode(e));
+	h.update(l);
 	return Botan::BigInt("0x"+Botan::OctetString(h.final()).as_string());
 }
 
-Ciphertext CramerShoup::encrypt(Botan::BigInt m) {
+Ciphertext CramerShoup::encrypt(Botan::BigInt m, std::string l) {
 	Ciphertext c;
 
 	// get the randomness
@@ -63,16 +65,16 @@ Ciphertext CramerShoup::encrypt(Botan::BigInt m) {
 	c.u1 = Botan::power_mod(this->kp.pk.G.get_g(), this->r, this->kp.pk.G.get_p());
 	c.u2 = Botan::power_mod(this->kp.pk.g2, this->r, this->kp.pk.G.get_p());
 	c.e = (Botan::power_mod(this->kp.pk.h, this->r, this->kp.pk.G.get_p())*m) % this->kp.pk.G.get_p();
-	Botan::BigInt tmp = hashIt(c.u1, c.u2, c.e);
+	Botan::BigInt tmp = hashIt(c.u1, c.u2, c.e, l);
 	c.v = (Botan::power_mod(this->kp.pk.c, this->r, this->kp.pk.G.get_p())*Botan::power_mod(this->kp.pk.d, r*tmp, this->kp.pk.G.get_p())) % this->kp.pk.G.get_p();
 
 	return c;
 }
 
-Botan::BigInt CramerShoup::decrypt(Ciphertext c) {
+Botan::BigInt CramerShoup::decrypt(Ciphertext c, std::string l) {
 	Botan::BigInt m;
 
-	Botan::BigInt tmp = hashIt(c.u1, c.u2, c.e);
+	Botan::BigInt tmp = hashIt(c.u1, c.u2, c.e, l);
 	Botan::BigInt check = (Botan::power_mod(c.u1, this->kp.sk.x1+(this->kp.sk.y1*tmp), this->kp.pk.G.get_p())*Botan::power_mod(c.u2, this->kp.sk.x2+(this->kp.sk.y2*tmp), this->kp.pk.G.get_p())) % this->kp.pk.G.get_p();
 
 	if (c.v == check){
@@ -84,5 +86,60 @@ Botan::BigInt CramerShoup::decrypt(Ciphertext c) {
 	return m;
 }
 
+void addBigInt(Botan::BigInt toAdd, std::vector<Botan::byte> *vec){
+	Botan::SecureVector<Botan::byte> in = Botan::BigInt::encode(toAdd);
+	size_t size = in.size();
+	for(size_t j = 0; j != sizeof(size_t); j++){
+		vec->push_back(Botan::get_byte(j, size));
+	}
+	vec->insert(vec->end(), in.begin(), in.begin()+size);
+}
 
+Ciphertext CramerShoup::decodeCiphertext(Botan::OctetString in){
+	Ciphertext c;
 
+	// we don't have longer numbers...
+	Botan::u32bit elementLength = Botan::BigInt::decode(in.begin(), 8, Botan::BigInt::Binary).to_u32bit();
+	c.u1 = Botan::BigInt::decode(in.begin()+8*sizeof(Botan::byte), elementLength);
+
+	elementLength = Botan::BigInt::decode(in.begin()+8+elementLength, 8, Botan::BigInt::Binary).to_u32bit();
+	c.u2 = Botan::BigInt::decode(in.begin()+2*8*sizeof(Botan::byte)+elementLength, elementLength);
+
+	elementLength = Botan::BigInt::decode(in.begin()+2*(8+elementLength), 8, Botan::BigInt::Binary).to_u32bit();
+	c.e = Botan::BigInt::decode(in.begin()+3*8*sizeof(Botan::byte)+2*(elementLength), elementLength);
+
+	elementLength = Botan::BigInt::decode(in.begin()+3*(8+elementLength), 8, Botan::BigInt::Binary).to_u32bit();
+	c.v = Botan::BigInt::decode(in.begin()+4*8*sizeof(Botan::byte)+3*(elementLength), elementLength);
+
+	return c;
+}
+
+Botan::OctetString CramerShoup::encodeCiphertext(Ciphertext c){
+	std::vector<Botan::byte> tmp;
+
+	addBigInt(c.u1, &tmp);
+	addBigInt(c.u2, &tmp);
+	addBigInt(c.e, &tmp);
+	addBigInt(c.v, &tmp);
+
+//	Botan::SecureVector<Botan::byte> ee = Botan::BigInt::encode(c.e);
+//	Botan::SecureVector<Botan::byte> eu1 = Botan::BigInt::encode(c.u1);
+//	Botan::SecureVector<Botan::byte> eu2 = Botan::BigInt::encode(c.u2);
+//	Botan::SecureVector<Botan::byte> ev = Botan::BigInt::encode(c.v);
+//
+//	size_t size = ee.size();
+//	for(size_t j = 0; j != sizeof(size_t); j++){
+//		tmp.push_back(Botan::get_byte(j, size));
+//	}
+//	tmp.insert(tmp.end(), ee.begin(), ee.begin()+size);
+
+	// XXX: Test output
+//	for( std::vector<Botan::byte>::const_iterator i = tmp.begin(); i != tmp.end(); ++i)
+//		std::cout << std::hex << (int)*i;
+//	std::cout << "\n";
+	///////
+
+	Botan::OctetString encoded(reinterpret_cast<const Botan::byte*>(&tmp[0]), tmp.size());
+
+	return encoded;
+}

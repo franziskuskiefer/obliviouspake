@@ -29,8 +29,10 @@ private:
 public:
 	CramerShoupSPHash();
 	CramerShoupSPHash(Key, PublicKey);
+
 	void keyGen(PublicKey);
-	Botan::BigInt project(Ciphertext);
+
+	Botan::BigInt project(Ciphertext, std::string = "");
 	Botan::BigInt hash(X); // x = (c,m)
 
 	~CramerShoupSPHash(){
