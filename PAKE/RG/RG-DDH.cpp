@@ -75,17 +75,41 @@ void addCiphertext(std::vector<Botan::byte> &vec, Ciphertext &c){
 	vec.insert(vec.end(), tmp.begin(), tmp.begin()+tmp.size());
 }
 
+void RG_DDH::computeMacandKey(Botan::OctetString &t, Botan::OctetString &key){
+	// shorten key first // XXX: security?
+	Botan::Pipe hashPipe(new Botan::Hash_Filter("SHA-256"));
+	hashPipe.process_msg(Botan::BigInt::encode(this->sk1));
+	hashPipe.process_msg(Botan::BigInt::encode(this->sk2));
+
+	key = Botan::SymmetricKey(hashPipe.read_all(0));
+	Botan::Pipe macPipe(new Botan::MAC_Filter("HMAC(SHA-256)", key));
+	// create MAC input
+	std::vector<Botan::byte> macIn;
+	addCiphertext(macIn, this->c1);
+	Botan::SecureVector<Botan::byte> tmp = Botan::BigInt::encode(this->s1);
+	macIn.insert(macIn.end(), tmp.begin(), tmp.begin()+tmp.size());
+	addCiphertext(macIn, this->c2);
+	tmp = Botan::BigInt::encode(this->s2);
+	macIn.insert(macIn.end(), tmp.begin(), tmp.begin()+tmp.size());
+	macPipe.process_msg(&(macIn[0]), macIn.size());
+	t = Botan::OctetString(macPipe.read_all(0));
+
+	Botan::OctetString toXor(hashPipe.read_all(1));
+	t ^= toXor;
+
+	// compute also final key
+	key ^= toXor;
+}
+
 /**
  * calculate next message based on incoming message
  */
 mk RG_DDH::next(message m){
 	mk result;
 	if(m.length() == 0) { // at the first invocation the key is "null" --- here this can only happen once!
-		std::cout << "---next---0\n";
 		this->c1 = this->cs.encrypt(this->pwd, this->ids);
 		result.m = CramerShoup::encodeCiphertext(this->c1);
 	} else if (m.length() > 0 && this->s1.size() == 0 && this->c1.e.size() == 0) { // Party gets first message --- FIXME: this won't work... how to identify first message?
-		std::cout << "---next---1\n";
 		this->csHash.keyGen(this->cs.getKp().pk);
 		this->c1 = CramerShoup::decodeCiphertext(m);
 		this->s1 = this->csHash.project(this->c1, this->ids);
@@ -93,18 +117,23 @@ mk RG_DDH::next(message m){
 		x.c = this->c1;
 		x.m = this->pwd;
 		this->sk1 = this->csHash.hash(x); // no label here necessary!
-		this->c2 = this->cs.encrypt(this->pwd, m.as_string()+Botan::OctetString(Botan::BigInt::encode(this->s1)).as_string());
+
+		std::vector<Botan::byte> tmpCVec;
+		addCiphertext(tmpCVec, this->c1);
+		this->c2 = this->cs.encrypt(this->pwd, Botan::OctetString(&tmpCVec[0], tmpCVec.size()).as_string()+Botan::OctetString(Botan::BigInt::encode(this->s1)).as_string());
 
 		result.m = encodeMessage(this->c2, this->s1);
-	} else if (m.length() > 0 && this->c1.e.size() != 0) {
-		std::cout << "---next---2\n";
+	} else if (m.length() > 0 && this->c1.e.size() != 0 && this->c2.e.size() == 0) {
 		this->csHash.keyGen(this->cs.getKp().pk);
 		Botan::OctetString encodedC, encodedS;
 		decodeMessage(m, encodedC, encodedS);
 		this->c2 = CramerShoup::decodeCiphertext(encodedC);
+
 		this->s1 = Botan::BigInt(encodedS.begin(), encodedS.length());
 
-		this->s2 = this->csHash.project(this->c2);
+		std::vector<Botan::byte> tmpCVec;
+		addCiphertext(tmpCVec, this->c1);
+		this->s2 = this->csHash.project(this->c2, Botan::OctetString(&tmpCVec[0], tmpCVec.size()).as_string()+Botan::OctetString(Botan::BigInt::encode(this->s1)).as_string());
 		X x;
 		x.c = this->c2;
 		x.m = this->pwd;
@@ -114,25 +143,33 @@ mk RG_DDH::next(message m){
 
 		// compute MAC
 		// shorten key first // XXX: security?
-		Botan::Pipe hashPipe(new Botan::Hash_Filter("SHA-256"));
-		hashPipe.process_msg(Botan::BigInt::encode(this->sk1));
-		hashPipe.process_msg(Botan::BigInt::encode(this->sk2));
+		Botan::OctetString t, key;
+		computeMacandKey(t, key);
 
-		Botan::SymmetricKey key(hashPipe.read_all(0));
-		Botan::Pipe macPipe(new Botan::MAC_Filter("HMAC(SHA-256)", key));
-		// create MAC input
-		std::vector<Botan::byte> macIn;
-		addCiphertext(macIn, this->c1);
-		Botan::SecureVector<Botan::byte> tmp = Botan::BigInt::encode(this->s1);
-		macIn.insert(macIn.end(), tmp.begin(), tmp.begin()+tmp.size());
-		addCiphertext(macIn, this->c2);
-		tmp = Botan::BigInt::encode(this->s2);
-		macIn.insert(macIn.end(), tmp.begin(), tmp.begin()+tmp.size());
-		macPipe.process_msg(&(macIn[0]), macIn.size());
-		Botan::OctetString t(macPipe.read_all(0));
+		// output s2 and t
+		std::vector<Botan::byte> output;
+		CramerShoup::addBigInt(this->s2, &output);
+		output.insert(output.end(), t.begin(), t.begin()+t.length());
+		result.m = Botan::OctetString(reinterpret_cast<const Botan::byte*>(&output[0]), output.size());
 
-		Botan::OctetString toXor(hashPipe.read_all(1));
-		t ^= toXor;
+		this->k = key;
+		result.k = key;
+	} else if (m.length() > 0) { // last step for client: key computation and MAC check
+		// get t and s2
+		Botan::OctetString t, s;
+		decodeMessage(m, t, s);
+		this->s2 = Botan::BigInt(s.begin(), s.length());
+		this->sk2 = Botan::power_mod(this->s2, this->cs.getR(), this->cs.getKp().pk.G.get_p());
+
+		Botan::OctetString tCheck, key;
+		computeMacandKey(tCheck, key);
+
+		if (t == tCheck){
+			result.k = key;
+			this->k = key;
+		} else {
+			// error...something went wrong, so we have no key
+		}
 	}
 
 	return result;
