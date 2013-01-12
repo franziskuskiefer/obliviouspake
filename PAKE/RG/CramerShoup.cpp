@@ -126,3 +126,11 @@ Botan::OctetString CramerShoup::encodeCiphertext(Ciphertext c){
 
 	return encoded;
 }
+
+void CramerShoup::printCiphertext(Ciphertext c){
+	std::cout << "Ciphertext\n";
+	std::cout << "u1: " << std::hex << c.u1;
+	std::cout << "\nu2: " << std::hex << c.u2;
+	std::cout << "\ne: " << std::hex << c.e;
+	std::cout << "\nv: " << std::hex << c.v << "\n";
+}

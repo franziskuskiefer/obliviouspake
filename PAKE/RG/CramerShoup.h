@@ -56,6 +56,7 @@ public:
 	static Botan::OctetString encodeCiphertext(Ciphertext);
 	static Ciphertext decodeCiphertext(Botan::OctetString);
 	static void addBigInt(Botan::BigInt, std::vector<Botan::byte>*);
+	static void printCiphertext(Ciphertext);
 
 	~CramerShoup(){
 		// nothing here yet...

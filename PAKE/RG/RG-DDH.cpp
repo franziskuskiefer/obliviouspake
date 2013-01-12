@@ -63,6 +63,18 @@ void decodeMessage(Botan::OctetString in, Botan::OctetString &c, Botan::OctetStr
 	c = Botan::OctetString(in.begin()+8*sizeof(Botan::byte)+elementLength, in.length()-8*sizeof(Botan::byte)-elementLength);
 }
 
+void addCiphertext(std::vector<Botan::byte> &vec, Ciphertext &c){
+	Botan::SecureVector<Botan::byte> tmp;
+	tmp = Botan::BigInt::encode(c.u1);
+	vec.insert(vec.end(), tmp.begin(), tmp.begin()+tmp.size());
+	tmp = Botan::BigInt::encode(c.u2);
+	vec.insert(vec.end(), tmp.begin(), tmp.begin()+tmp.size());
+	tmp = Botan::BigInt::encode(c.e);
+	vec.insert(vec.end(), tmp.begin(), tmp.begin()+tmp.size());
+	tmp = Botan::BigInt::encode(c.v);
+	vec.insert(vec.end(), tmp.begin(), tmp.begin()+tmp.size());
+}
+
 /**
  * calculate next message based on incoming message
  */
@@ -76,11 +88,11 @@ mk RG_DDH::next(message m){
 		std::cout << "---next---1\n";
 		this->csHash.keyGen(this->cs.getKp().pk);
 		this->c1 = CramerShoup::decodeCiphertext(m);
-		this->s1 = this->csHash.project(this->c1);
+		this->s1 = this->csHash.project(this->c1, this->ids);
 		X x;
 		x.c = this->c1;
 		x.m = this->pwd;
-		Botan::BigInt sk = this->csHash.hash(x); // no label here necessary!
+		this->sk1 = this->csHash.hash(x); // no label here necessary!
 		this->c2 = this->cs.encrypt(this->pwd, m.as_string()+Botan::OctetString(Botan::BigInt::encode(this->s1)).as_string());
 
 		result.m = encodeMessage(this->c2, this->s1);
@@ -93,6 +105,34 @@ mk RG_DDH::next(message m){
 		this->s1 = Botan::BigInt(encodedS.begin(), encodedS.length());
 
 		this->s2 = this->csHash.project(this->c2);
+		X x;
+		x.c = this->c2;
+		x.m = this->pwd;
+		this->sk2 = this->csHash.hash(x); // no label here necessary!
+
+		this->sk1 = Botan::power_mod(this->s1, this->cs.getR(), this->cs.getKp().pk.G.get_p());
+
+		// compute MAC
+		// shorten key first // XXX: security?
+		Botan::Pipe hashPipe(new Botan::Hash_Filter("SHA-256"));
+		hashPipe.process_msg(Botan::BigInt::encode(this->sk1));
+		hashPipe.process_msg(Botan::BigInt::encode(this->sk2));
+
+		Botan::SymmetricKey key(hashPipe.read_all(0));
+		Botan::Pipe macPipe(new Botan::MAC_Filter("HMAC(SHA-256)", key));
+		// create MAC input
+		std::vector<Botan::byte> macIn;
+		addCiphertext(macIn, this->c1);
+		Botan::SecureVector<Botan::byte> tmp = Botan::BigInt::encode(this->s1);
+		macIn.insert(macIn.end(), tmp.begin(), tmp.begin()+tmp.size());
+		addCiphertext(macIn, this->c2);
+		tmp = Botan::BigInt::encode(this->s2);
+		macIn.insert(macIn.end(), tmp.begin(), tmp.begin()+tmp.size());
+		macPipe.process_msg(&(macIn[0]), macIn.size());
+		Botan::OctetString t(macPipe.read_all(0));
+
+		Botan::OctetString toXor(hashPipe.read_all(1));
+		t ^= toXor;
 	}
 
 	return result;
