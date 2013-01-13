@@ -95,6 +95,7 @@ void CramerShoup::addBigInt(Botan::BigInt toAdd, std::vector<Botan::byte> *vec) 
 	vec->insert(vec->end(), in.begin(), in.begin()+size);
 }
 
+// FIXME: does not work with elements of different size --> is this really necessary?
 Ciphertext CramerShoup::decodeCiphertext(Botan::OctetString in){
 	Ciphertext c;
 
