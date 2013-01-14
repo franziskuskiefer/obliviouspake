@@ -12,7 +12,7 @@
 
 void test1(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string session_param, std::string pwd){
 	// create Spake Server & Client instances
-	Spake server(&G, &M, &N, session_param), client(&G, &M, &N, session_param);
+	Spake server(G, M, N, session_param), client(G, M, N, session_param);
 	server.init(pwd, SERVER);
 	client.init(pwd, CLIENT);
 
@@ -29,7 +29,7 @@ void test1(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string sess
 
 void test2(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string session_param, std::string pwd){
 	// create Spake Server & Client instances
-	Spake server(&G, &M, &N, session_param), client(&G, &M, &N, session_param);
+	Spake server(G, M, N, session_param), client(G, M, N, session_param);
 	server.init(pwd, SERVER);
 	client.init(pwd, CLIENT);
 
@@ -45,7 +45,7 @@ void test2(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string sess
 
 void test3(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string session_param, std::string pwd){
 	// create Spake Server & Client instances
-	Spake server(&G, &M, &N, session_param), client(&G, &M, &N, session_param);
+	Spake server(G, M, N, session_param), client(G, M, N, session_param);
 	server.init(pwd, SERVER);
 	client.init(pwd, CLIENT);
 

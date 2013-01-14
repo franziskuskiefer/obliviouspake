@@ -37,11 +37,11 @@ BigInt computeKey(BigInt publicValue, BigInt pwd, BigInt publicKey, DH_PrivateKe
 /**
  * Spake constructor, for general setup purposes (DL Group)
  */
-Spake::Spake(Botan::DL_Group* G, Botan::BigInt* M, Botan::BigInt* N, std::string crs)
+Spake::Spake(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string crs)
 	{
-	this->G = *G;
-	this->M = *M;
-	this->N = *N;
+	this->G = G;
+	this->M = M;
+	this->N = N;
 	this->crs = crs;
 
 	// empty instantiation of other variables // FIXME: really necessary?

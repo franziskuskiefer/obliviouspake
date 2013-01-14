@@ -25,7 +25,7 @@ private:
 	key k;
 
 public:
-	Spake(Botan::DL_Group*, Botan::BigInt*, Botan::BigInt*, std::string);
+	Spake(Botan::DL_Group, Botan::BigInt, Botan::BigInt, std::string);
 	void init(std::string, ROLE);
 	mk next(message);
 
