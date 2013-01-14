@@ -105,10 +105,12 @@ mk Spake::next(message m){
 				K = computeKey(this->N, this->pwd, Y, *(this->privateKey), this->G);
 				// calculates the actual keys
 				result.k = hashIt(this->crs, Y, this->publicKey, this->pwd, K);
+				this->k = result.k;
 			} else { // use M for Server
 				K = computeKey(this->M, this->pwd, Y, *(this->privateKey), this->G);
 				// calculates the actual keys
 				result.k = hashIt(this->crs, this->publicKey, Y, this->pwd, K);
+				this->k = result.k;
 			}
 		}
 	}
