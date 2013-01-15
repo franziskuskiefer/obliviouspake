@@ -18,10 +18,9 @@ private:
 
 	// member variables for internal state
 	Botan::DL_Group G;
-	Botan::BigInt M, N, pwd, publicKey;
+	Botan::BigInt M, N, publicKey;
 	std::string crs;
 	boost::shared_ptr<Botan::DH_PrivateKey> privateKey;
-	ROLE r;
 	key k;
 
 public:

@@ -11,6 +11,8 @@
 #include "ObliviousPAKE.h"
 #include "../PAKE/SPAKE/Spake.h"
 
+#include <math.h>
+
 class OSpake : public OPake {
 
 private:
@@ -18,6 +20,13 @@ private:
 	Botan::DL_Group G;
 	Botan::BigInt M, N;
 	std::string crs;
+
+	Botan::BigInt ihmeDecode(message);
+	gcry_mpi_t* MessageToS(Botan::OctetString, int);
+	Botan::BigInt MpiToBigInt(gcry_mpi_t);
+	void addElement(struct point*, int*, Botan::BigInt, Botan::BigInt);
+	Botan::OctetString encodeS(gcry_mpi_t*);
+	void addOctetString(Botan::OctetString, std::vector<Botan::byte>*);
 
 public:
 	OSpake(Botan::DL_Group, Botan::BigInt, Botan::BigInt, std::string);

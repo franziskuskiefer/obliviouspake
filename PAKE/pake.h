@@ -31,6 +31,11 @@ struct mk {
  */
 class Pake {
 
+protected:
+
+	ROLE r;
+	Botan::BigInt pwd;
+
 public:
 	virtual void init(std::string, ROLE) = 0;
 	virtual mk next(message) = 0;
@@ -44,6 +49,14 @@ public:
 	}
 
 	virtual ~Pake(){}
+
+	ROLE getR() const {
+		return r;
+	}
+
+	const Botan::BigInt& getPwd() const {
+		return pwd;
+	}
 };
 
 #endif /* PAKE_H_ */

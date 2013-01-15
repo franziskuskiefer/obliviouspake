@@ -9,6 +9,7 @@
 #define OBLIVIOUSPAKE_H_
 
 #include "../PAKE/pake.h"
+#include "../IHME/IHME.h"
 
 #include <boost/shared_ptr.hpp>
 
