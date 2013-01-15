@@ -27,6 +27,8 @@ private:
 	void addElement(struct point*, int*, Botan::BigInt, Botan::BigInt);
 	Botan::OctetString encodeS(gcry_mpi_t*);
 	void addOctetString(Botan::OctetString, std::vector<Botan::byte>*);
+	void keyGen(Botan::OctetString, Botan::OctetString *, Botan::InitializationVector *);
+	void confGen(Botan::OctetString, Botan::OctetString *, Botan::InitializationVector *);
 
 public:
 	OSpake(Botan::DL_Group, Botan::BigInt, Botan::BigInt, std::string);

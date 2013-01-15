@@ -18,13 +18,13 @@ void test1(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string sess
 
 	// first message is empty obiously...
 	message m0;
-	mk c1 = client.next(m0);
-//	mk s1 = server.next(m0);
-	mk s1 = server.next(c1.m);
-	mk c2 = client.next(s1.m);
-	std::cout << "Client key: " << c2.k.as_string() << "\n";
-	std::cout << "Server key: " << s1.k.as_string() << "\n";
-	std::cout << ((c2.k == s1.k) ? "Everything worked fine with SPAKE :)" : ":( Something went wrong with SPAKE...")  << "\n\n";
+	mk s1 = server.next(m0);
+	mk c1 = client.next(s1.m);
+	mk s2 = server.next(c1.m);
+//	mk c2 = client.next(s1.m);
+	std::cout << "Client key: " << c1.k.as_string() << "\n";
+	std::cout << "Server key: " << s2.k.as_string() << "\n";
+	std::cout << ((c1.k == s2.k) ? "Everything worked fine with SPAKE :)" : ":( Something went wrong with SPAKE...")  << "\n\n";
 }
 
 

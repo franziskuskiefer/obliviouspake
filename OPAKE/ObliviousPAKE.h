@@ -19,6 +19,7 @@ protected:
 
 	int c;
 	std::vector<boost::shared_ptr<Pake> > procs;
+	std::vector<Botan::byte> sid;
 
 public:
 	virtual void init(std::vector<std::string>, ROLE, int) = 0;
