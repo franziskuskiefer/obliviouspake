@@ -25,6 +25,7 @@ OSpake::OSpake(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string 
 	this->crs = crs;
 	Spake *tmp = new Spake(G, M, N, crs);
 	this->procs.push_back(boost::shared_ptr<Pake>(tmp));
+	finished = false;
 }
 
 void OSpake::init(std::vector<std::string> pwds, ROLE role, int c) {
@@ -63,10 +64,7 @@ gcry_mpi_t* OSpake::MessageToS(Botan::OctetString in, int numPwds){
 	for(int k = 0; k < numPwds; k++){
 		S[k] = gcry_mpi_new(0);
 		elementLength = Botan::BigInt::decode(in.begin()+k*(8+elementLength), 8, Botan::BigInt::Binary).to_u32bit();
-//		std::cout << "elementLength: " << elementLength << std::endl;
-//		std::cout << "begin: " << ((unsigned long)in.begin()+(k+1)*8*sizeof(Botan::byte)+(k-1)*(elementLength)) << std::endl;
 		gcry_mpi_scan(&(S[k]), GCRYMPI_FMT_USG, in.begin()+(k+1)*8*sizeof(Botan::byte)+k*elementLength, elementLength, &nscanned);
-//		print_mpi("S: ", S[k]);
 	}
 	return S;
 }
@@ -143,14 +141,13 @@ Botan::OctetString OSpake::encodeS(gcry_mpi_t *S){
 }
 
 // simulating a keyed PRF as AES encryption of the input
-// FIXME: Hash the output?
+// FIXME: How to implement PRF correct?
 Botan::SecureVector<Botan::byte> PRF(Botan::OctetString k, Botan::SecureVector<Botan::byte> sid, std::string indicator, Botan::InitializationVector *iv){
 	Botan::AutoSeeded_RNG rng;
-	Botan::SymmetricKey key = k; // use the BigInt as 256-bit key
 	if (iv->length() == 0)
 		*iv = Botan::InitializationVector(rng, 16); // a random 128-bit IV
 
-	Botan::Pipe pipe(Botan::get_cipher("AES-256/CBC", key, *iv, Botan::ENCRYPTION));
+	Botan::Pipe pipe(Botan::get_cipher("AES-256/CBC", k, *iv, Botan::ENCRYPTION), new Botan::Hash_Filter("SHA-256"));
 
 	std::string toEnc = Botan::OctetString(sid).as_string()+indicator;
 	pipe.process_msg(toEnc);
@@ -171,8 +168,8 @@ void OSpake::keyGen(Botan::OctetString K, Botan::OctetString *finalK, Botan::Ini
 // generate server confirmation message of OSpake
 void OSpake::confGen(Botan::OctetString K, Botan::OctetString *conf, Botan::InitializationVector *iv){
 	std::string forConf = "0";
-	// get S as byte vector
 	Botan::SecureVector<Botan::byte> sid(&this->sid[0], this->sid.size());
+//	std::cout << "sid: " << Botan::OctetString(sid).as_string() << "\n";
 	*conf = Botan::OctetString(PRF(K, sid, forConf, iv));
 }
 
@@ -184,10 +181,8 @@ mk OSpake::next(message m) {
 		if (m.length() != 0){
 			// get correct message first
 			PrimeGroupAE ae(&this->G);
-			std::cout << "m(Server): " << m.as_string() << "\n";
 			Botan::BigInt aeDecodedM = ihmeDecode(m);
 			Botan::BigInt message = ae.decode(aeDecodedM);//decodeMessage(m)
-			//		std::cout << "message(Server): " << std::hex << message << "\n";
 			messageIn = Botan::OctetString(Botan::BigInt::encode(message));
 		} else {
 			messageIn = m;
@@ -204,57 +199,98 @@ mk OSpake::next(message m) {
 			Botan::OctetString finalK;
 			Botan::InitializationVector ivKey, ivConf;
 			keyGen(result.k, &finalK, &ivKey);
-			keyGen(result.k, &result.m, &ivConf);
+			confGen(result.k, &result.m, &ivConf);
 			result.k = finalK;
-			std::cout << "m(conf): " << result.m.as_string() << "\n";
+
+			// add IVs to message
+			std::vector<Botan::byte> out;
+			addOctetString(result.m, &out);
+			addOctetString(ivKey, &out);
+			addOctetString(ivConf, &out);
+			result.m = Botan::OctetString(reinterpret_cast<const Botan::byte*>(&out[0]), out.size());
+//			std::cout << "m(conf): " << result.m.as_string() << "\n";
 		}
 	} else { // this has to be a client....
-		bool finished = false;
-		struct point P[this->c];
-		for (int k = 0; k < this->c; k++)
-			initpoint(&P[k]);
-		int pos = 0;
-		std::vector<Botan::OctetString> keys;
-		for (int i = 0; i < this->c; ++i) { //FIXME: incoming m could be empty!
-			std::cout << "i: " << i << "\n";
-			std::cout << "incoming m (client): " << m.as_string() << std::endl;
-			mk piResult = this->procs[i]->next(m);
-			std::cout << "fuu: " << piResult.m.as_string() << std::endl;
-			if (piResult.m.length() == 0) {// there is no message anymore.... stop the bloody protocol
-				// do not handle empty messages
-				// FIXME: do we have to use random messages here?
-				finished = true;
-			} else { // only if there is really a message from Pi.next, we have to process it
-				// encode the client's (Alice) messages (admissible encoding)
-				PrimeGroupAE ae(&this->G);
-				Botan::BigInt out = Botan::BigInt("0x"+piResult.m.as_string()); // FIXME: get BigInt direct from Pi!
-				std::cout << "m(Client): " << out << "\n";
+		if (!this->finished){ // normal PAKE computations here
+			// clear key vector
+			this->keys.clear();
+			// add incoming message to sid
+			this->sid.insert(this->sid.end(), m.begin(), m.begin()+m.length());
 
-				// add admissible encoding
-				Botan::BigInt aeEncoded = ae.encode(out);
-				std::cout << "aeEncoded: " << std::hex << aeEncoded << "\n";
+			struct point P[this->c];
+			for (int k = 0; k < this->c; k++)
+				initpoint(&P[k]);
+			int pos = 0;
+			for (int i = 0; i < this->c; ++i) { //FIXME: incoming m could be empty!
+//				std::cout << "i: " << i << "\n";
+//				std::cout << "incoming m (client): " << m.as_string() << std::endl;
+				mk piResult = this->procs[i]->next(m);
+//				std::cout << "fuuM: " << piResult.m.as_string() << std::endl;
+//				std::cout << "fuuK: " << piResult.k.as_string() << std::endl;
+				if (piResult.m.length() == 0) {// there is no message anymore.... stop the bloody protocol
+					// do not handle empty messages
+					// FIXME: do we have to use random messages here?
+					this->finished = true;
+				} else { // only if there is really a message from Pi.next, we have to process it
+					// encode the client's (Alice) messages (admissible encoding)
+					PrimeGroupAE ae(&this->G);
+					Botan::BigInt out = Botan::BigInt("0x"+piResult.m.as_string()); // FIXME: get BigInt direct from Pi!
+//					std::cout << "m(Client): " << out << "\n";
 
-				// add out to IHME structure P
-				addElement(P, &pos, this->procs[i]->getPwd(), aeEncoded);
+					// add admissible encoding
+					Botan::BigInt aeEncoded = ae.encode(out);
+//					std::cout << "aeEncoded: " << std::hex << aeEncoded << "\n";
+
+					// add out to IHME structure P
+					addElement(P, &pos, this->procs[i]->getPwd(), aeEncoded);
+				}
+
+				// store also the key in the vector // FIXME: has to be done different!
+				this->keys.insert(this->keys.end(), piResult.k);
 			}
+			result.k = this->keys[1]; // FIXME: have to return all keys....
 
-			// store also the key in the vector // FIXME: has to be done different!
-			keys.insert(keys.end(), piResult.k);
-		}
-		result.k = keys[1]; // FIXME: have to return all keys....
+			if (!this->finished){
+				// compute IHME structure S from P with c passwords and modulus p
+				gcry_mpi_t p;
+				BigIntToMpi(&p, this->G.get_p());
+				gcry_mpi_t *S;
+				S = createIHMEResultSet(this->c);
+				interpolation_alg2(S, P, this->c, p);
 
-		if (!finished){
-			// compute IHME structure S from P with c passwords and modulus p
-			gcry_mpi_t p;
-			BigIntToMpi(&p, this->G.get_p());
-			gcry_mpi_t *S;
-			S = createIHMEResultSet(this->c);
-			interpolation_alg2(S, P, this->c, p);
+				// have to encode the S as OctetString
+				Botan::OctetString out = encodeS(S);
+				result.m = out;
+				this->sid.insert(this->sid.end(), out.begin(),out.begin()+out.length());
 
-			// have to encode the S as OctetString
-			result.m = encodeS(S);
-//		result.m = Botan::OctetString(Botan::BigInt::encode(P[0]));
+				// FIXME: when can we set finished?
+				this->finished = true;
+			}
+		} else { // Here Pi finished and the incomming message is the confirmation message
+			Botan::u32bit confLength = Botan::BigInt::decode(m.begin(), 8, Botan::BigInt::Binary).to_u32bit();
+			Botan::SecureVector<Botan::byte> confVal(m.begin()+8*sizeof(Botan::byte), confLength);
 
+			Botan::u32bit ivLength = Botan::BigInt::decode(m.begin()+8+confLength, 8, Botan::BigInt::Binary).to_u32bit();
+			Botan::OctetString ivKey(m.begin()+2*8*sizeof(Botan::byte)+confLength, ivLength);
+			Botan::OctetString ivConf(m.begin()+3*8*sizeof(Botan::byte)+confLength+ivLength, ivLength);
+
+			// compute keys for Client
+			for (int var = 0; var < this->c; ++var) {
+				// generate confirmation message for every computed key
+				Botan::OctetString conf;
+//				std::cout << "key: " << this->keys[var].as_string() << std::endl;
+				confGen(this->keys[var], &conf, &ivConf);
+
+//				std::cout << "confVal: " << Botan::OctetString(confVal).as_string() << std::endl;
+//				std::cout << "conf: " << conf.as_string() << std::endl;
+//				std::cout << "ivConf: " << ivConf.as_string() << std::endl;
+
+				if (conf == Botan::OctetString(confVal)){
+					std::cout << "got the key :)\n";
+					keyGen(this->keys[var], &result.k, &ivKey);
+					break; // XXX: we can stop when we found the correct key; Problem: Side-Channel Attacks
+				}
+			}
 		}
 	}
 	return result;

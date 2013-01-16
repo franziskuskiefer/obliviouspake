@@ -20,6 +20,7 @@ private:
 	Botan::DL_Group G;
 	Botan::BigInt M, N;
 	std::string crs;
+	bool finished;
 
 	Botan::BigInt ihmeDecode(message);
 	gcry_mpi_t* MessageToS(Botan::OctetString, int);
