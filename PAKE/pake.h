@@ -10,21 +10,7 @@
 #ifndef PAKE_H_
 #define PAKE_H_
 
-// Botan stuff
-#include <botan/botan.h>
-#include <botan/dh.h>
-#include <botan/pubkey.h>
-#include <botan/sha2_32.h>
-
-enum ROLE {SERVER = 0, CLIENT = 1};
-
-typedef Botan::OctetString key;
-typedef Botan::OctetString message;
-
-struct mk {
-	key k;
-	message m;
-};
+#include "../Util/Util.h"
 
 /**
  * The overall PAKE class
