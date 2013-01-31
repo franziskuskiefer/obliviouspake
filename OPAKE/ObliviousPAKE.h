@@ -8,7 +8,9 @@
 #ifndef OBLIVIOUSPAKE_H_
 #define OBLIVIOUSPAKE_H_
 
+// OPAKE Compiler gets an PAKE as input
 #include "../PAKE/pake.h"
+// and uses IHME for message encoding
 #include "../IHME/IHME.h"
 
 #include <boost/shared_ptr.hpp>
@@ -21,6 +23,17 @@ protected:
 	std::vector<boost::shared_ptr<Pake> > procs;
 	std::vector<Botan::byte> sid;
 	std::vector<Botan::OctetString> keys;
+
+
+	void addElement(struct point*, int*, Botan::BigInt, Botan::BigInt);
+	Botan::OctetString encodeS(gcry_mpi_t*, int);
+	void addOctetString(Botan::OctetString, std::vector<Botan::byte>*);
+	void keyGen(Botan::OctetString, Botan::OctetString *, Botan::InitializationVector *, std::vector<Botan::byte>);
+	void confGen(Botan::OctetString, Botan::OctetString *, Botan::InitializationVector *, std::vector<Botan::byte>);
+	Botan::SecureVector<Botan::byte> PRF(Botan::OctetString, Botan::SecureVector<Botan::byte>, std::string, Botan::InitializationVector *);
+	gcry_mpi_t* MessageToS(Botan::OctetString, int);
+	Botan::BigInt ihmeDecode(message,Botan::DL_Group, int, Botan::BigInt);
+	gcry_mpi_t* createIHMEResultSet(int);
 
 public:
 	virtual void init(std::vector<std::string>, ROLE, int) = 0;

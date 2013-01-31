@@ -38,7 +38,7 @@ RG_DDH::RG_DDH(Botan::DL_Group* G, std::string id, PublicKey *pk)
  */
 void RG_DDH::init(std::string pwd, ROLE r){
 	this->r = r;
-	this->pwd = pwdToBigInt(pwd);
+	this->pwd = Util::pwdToBigInt(pwd);
 }
 
 // TODO: generalise with Carmer-Shoup cipher encoding

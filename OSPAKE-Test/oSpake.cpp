@@ -121,12 +121,6 @@ void addElement(struct point *P, int *pos, BigInt pwd, BigInt m){
 	++*pos;
 }
 
-// convert a string (the password here) to a Botan BigInt
-BigInt pwdToBigInt(std::string pwd){
-	const byte* pwdB = (byte*)&pwd[0];
-	return BigInt::decode(pwdB, pwd.length(), BigInt::Binary);
-}
-
 // create the output message of SPAKE (g^x*M^pwd mod p)
 BigInt createMessage(DH_PrivateKey privateKey, BigInt pwd, DL_Group G, BigInt M){
 	return (privateKey.get_y()*(power_mod(M, pwd, G.get_p()))) % G.get_p();
@@ -296,7 +290,7 @@ int main(int argc, char* argv[])
 				std::vector<BigInt> encoded_public_A_vector;
 				for (int var = 0; var < numPwds; ++var) {
 					// convert password to Z_N
-					BigInt pwdBigInt = pwdToBigInt(passwords.at(var));
+					BigInt pwdBigInt = Util::pwdToBigInt(passwords.at(var));
 					passwordVector.insert(passwordVector.end(), pwdBigInt);
 
 					// compute Alice' public value for current pwd

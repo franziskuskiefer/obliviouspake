@@ -26,14 +26,6 @@ public:
 	virtual void init(std::string, ROLE) = 0;
 	virtual mk next(message) = 0;
 
-	/**
-	 * Utility function to convert a password string into a BigInt
-	 */
-	Botan::BigInt pwdToBigInt(std::string pwd){
-		const Botan::byte* pwdB = (Botan::byte*)&pwd[0];
-		return Botan::BigInt::decode(pwdB, pwd.length(), Botan::BigInt::Binary);
-	}
-
 	virtual ~Pake(){}
 
 	ROLE getR() const {

@@ -30,11 +30,6 @@ OctetString hashIt(std::string params, BigInt A, BigInt B, BigInt pwd, BigInt K)
 	return OctetString(h.final());
 }
 
-BigInt pwdToBigInt(std::string pwd){
-	const byte* pwdB = (byte*)&pwd[0];
-	return BigInt::decode(pwdB, pwd.length(), BigInt::Binary);
-}
-
 BigInt createMessage(DH_PrivateKey privateKey, BigInt pwd, DL_Group G, BigInt M){
 	return (privateKey.get_y()*(power_mod(M, pwd, G.get_p()))) % G.get_p();
 }
@@ -81,7 +76,7 @@ int main(int argc, char* argv[])
 
 				// Alice sends to Bob her public key and a session parameter
 				// include password here
-				BigInt pwd1Num = pwdToBigInt("Password1");
+				BigInt pwd1Num = Util::pwdToBigInt("Password1");
 
 				BigInt public_a1BigInt = createMessage(private_a, pwd1Num, G, M);
 				//XXX: Alice outputs public_a1BigInt and sends it to Bob /////////////////////

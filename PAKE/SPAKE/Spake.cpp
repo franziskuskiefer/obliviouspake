@@ -53,7 +53,7 @@ Spake::Spake(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string cr
  */
 void Spake::init(std::string pwd, ROLE r){
 	this->r = r;
-	this->pwd = pwdToBigInt(pwd);
+	this->pwd = Util::pwdToBigInt(pwd);
 }
 
 /**

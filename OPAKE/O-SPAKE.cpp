@@ -6,7 +6,6 @@
  */
 
 #include "O-SPAKE.h"
-#include "../AdmissibleEncoding/PrimeGroupAE.h"
 
 OSpake::OSpake(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string crs) {
 	this->G = G;
@@ -37,134 +36,6 @@ Botan::BigInt decodeMessage(message m){
 	return Botan::BigInt("0x"+m.as_string());
 }
 
-/*
-// utility function to convert a Botan BigInt to a gcrypt mpi
-void BigIntToMpi(gcry_mpi_t *mpiResult, Botan::BigInt in){
-	Botan::SecureVector<Botan::byte> tmp = Botan::BigInt::encode(in);
-	*mpiResult = gcry_mpi_new(0);
-	size_t nscanned;
-	gcry_mpi_scan(mpiResult, GCRYMPI_FMT_USG, tmp.begin(), tmp.size(), &nscanned);
-}
-
-// initializes an IHME result set S (output of IHME encode function)
-gcry_mpi_t* createIHMEResultSet(int numPwds){
-	gcry_mpi_t *S;
-	S = (gcry_mpi_t*)calloc(numPwds, sizeof(gcry_mpi_t));
-	for(int k = 0; k < numPwds; k++)
-		S[k] = gcry_mpi_new(0);
-	return S;
-}
-*/
-
-/*
- * moved this stuff to Util.cpp
- *
-// utility function to convert an OctetString to a gcrypt mpi
-gcry_mpi_t* OSpake::MessageToS(Botan::OctetString in, int numPwds){
-	gcry_mpi_t *S;
-	S = (gcry_mpi_t*)calloc(numPwds, sizeof(gcry_mpi_t));
-	size_t nscanned;
-	Botan::u32bit elementLength = 0;
-	for(int k = 0; k < numPwds; k++){
-		S[k] = gcry_mpi_new(0);
-		elementLength = Botan::BigInt::decode(in.begin()+k*(8+elementLength), 8, Botan::BigInt::Binary).to_u32bit();
-		gcry_mpi_scan(&(S[k]), GCRYMPI_FMT_USG, in.begin()+(k+1)*8*sizeof(Botan::byte)+k*elementLength, elementLength, &nscanned);
-	}
-	return S;
-}
-
-// utility function to convert a gcrypt mpi to a Botan BigInt
-Botan::BigInt OSpake::MpiToBigInt(gcry_mpi_t in){
-	unsigned char *buf;
-	gcry_mpi_aprint (GCRYMPI_FMT_USG, &buf, NULL, in);
-	Botan::BigInt bigIntResult = Botan::BigInt::decode(buf, ceil((double)gcry_mpi_get_nbits(in)/8), Botan::BigInt::Binary);
-	gcry_free (buf);
-
-	return bigIntResult;
-}
-
-Botan::BigInt OSpake::ihmeDecode(message m){
-	gcry_mpi_t p;
-	BigIntToMpi(&p, this->G.get_p());
-	// get message from m to S
-	gcry_mpi_t *S = MessageToS(m, this->c);
-	// IHME decode
-	gcry_mpi_t encoded_public_A_MPI, serverPwdNumMPI;
-	BigIntToMpi(&serverPwdNumMPI, this->procs[0]->getPwd());
-	encoded_public_A_MPI = gcry_mpi_new(0);
-	decode(encoded_public_A_MPI,S,serverPwdNumMPI,this->c,p);
-	return MpiToBigInt(encoded_public_A_MPI);
-}
-
-// add an element to the IHME encode input structure P
-void OSpake::addElement(struct point *P, int *pos, Botan::BigInt pwd, Botan::BigInt m){
-	// convert BigInts to MPIs
-	gcry_mpi_t pwdMpi;
-	BigIntToMpi(&pwdMpi, pwd);
-	gcry_mpi_t mMpi;
-	BigIntToMpi(&mMpi, m);
-
-	// add (pwd, m) to P
-	P[*pos].x = pwdMpi;
-	P[*pos].y = mMpi;
-	++*pos;
-}
-
-void OSpake::addOctetString(Botan::OctetString toAdd, std::vector<Botan::byte> *vec) {
-	Botan::SecureVector<Botan::byte> in(toAdd.begin(), toAdd.length());
-	size_t size = in.size();
-	for(size_t j = 0; j != sizeof(size_t); j++){
-		vec->push_back(Botan::get_byte(j, size));
-	}
-	vec->insert(vec->end(), in.begin(), in.begin()+size);
-}
-
-Botan::OctetString OSpake::encodeS(gcry_mpi_t *S){
-	std::vector<Botan::byte> vec;
-	for(int i = 0; i < this->c; ++i) {
-		unsigned char *buf;
-		gcry_mpi_aprint (GCRYMPI_FMT_USG, &buf, NULL, S[i]);
-		Botan::OctetString tmpOct(buf, ceil((double)gcry_mpi_get_nbits(S[i])/8));
-		gcry_free (buf);
-		addOctetString(tmpOct, &vec);
-	}
-	Botan::OctetString encoded(reinterpret_cast<const Botan::byte*>(&vec[0]), vec.size());
-	return encoded;
-}
-
-// simulating a keyed PRF as AES encryption of the input
-// FIXME: How to implement PRF correct?
-Botan::SecureVector<Botan::byte> PRF(Botan::OctetString k, Botan::SecureVector<Botan::byte> sid, std::string indicator, Botan::InitializationVector *iv){
-	Botan::AutoSeeded_RNG rng;
-	if (iv->length() == 0)
-		*iv = Botan::InitializationVector(rng, 16); // a random 128-bit IV
-
-	Botan::Pipe pipe(Botan::get_cipher("AES-256/CBC", k, *iv, Botan::ENCRYPTION), new Botan::Hash_Filter("SHA-256"));
-
-	std::string toEnc = Botan::OctetString(sid).as_string()+indicator;
-	pipe.process_msg(toEnc);
-
-	Botan::SecureVector<Botan::byte> out = pipe.read_all(0);
-
-	return out;
-}
-
-// generate the final key of OSpake
-void OSpake::keyGen(Botan::OctetString K, Botan::OctetString *finalK, Botan::InitializationVector *iv){
-	std::string forKey = "1";
-	// get S as byte vector
-	Botan::SecureVector<Botan::byte> sid(&this->sid[0], this->sid.size());
-	*finalK = Botan::OctetString(PRF(K, sid, forKey, iv));
-}
-
-// generate server confirmation message of OSpake
-void OSpake::confGen(Botan::OctetString K, Botan::OctetString *conf, Botan::InitializationVector *iv){
-	std::string forConf = "0";
-	Botan::SecureVector<Botan::byte> sid(&this->sid[0], this->sid.size());
-	*conf = Botan::OctetString(PRF(K, sid, forConf, iv));
-}
-*/
-
 mk OSpake::next(message m) {
 	mk result;
 	std::cout << "--------------------- " << (this->procs[0]->getR() ? "Client" : "Server") << "---------------------\n";
@@ -173,7 +44,7 @@ mk OSpake::next(message m) {
 		if (m.length() != 0){
 			// get correct message first
 			PrimeGroupAE ae(&this->G);
-			Botan::BigInt aeDecodedM = Util::ihmeDecode(m, this->G, c, this->procs[0]->getPwd());
+			Botan::BigInt aeDecodedM = ihmeDecode(m, this->G, c, this->procs[0]->getPwd());
 			Botan::BigInt message = ae.decode(aeDecodedM);//decodeMessage(m)
 			messageIn = Botan::OctetString(Botan::BigInt::encode(message));
 		} else {
@@ -190,15 +61,15 @@ mk OSpake::next(message m) {
 			Botan::SecureVector<Botan::byte> confVal;
 			Botan::OctetString finalK;
 			Botan::InitializationVector ivKey, ivConf;
-			Util::keyGen(result.k, &finalK, &ivKey, this->sid);
-			Util::confGen(result.k, &result.m, &ivConf, this->sid);
+			keyGen(result.k, &finalK, &ivKey, this->sid);
+			confGen(result.k, &result.m, &ivConf, this->sid);
 			result.k = finalK;
 
 			// add IVs to message
 			std::vector<Botan::byte> out;
-			Util::addOctetString(result.m, &out);
-			Util::addOctetString(ivKey, &out);
-			Util::addOctetString(ivConf, &out);
+			addOctetString(result.m, &out);
+			addOctetString(ivKey, &out);
+			addOctetString(ivConf, &out);
 			result.m = Botan::OctetString(reinterpret_cast<const Botan::byte*>(&out[0]), out.size());
 		}
 	} else { // this has to be a client....
@@ -227,7 +98,7 @@ mk OSpake::next(message m) {
 					Botan::BigInt aeEncoded = ae.encode(out);
 
 					// add out to IHME structure P
-					Util::addElement(P, &pos, this->procs[i]->getPwd(), aeEncoded);
+					addElement(P, &pos, this->procs[i]->getPwd(), aeEncoded);
 				}
 
 				// store also the key in the vector // FIXME: has to be done different!
@@ -240,11 +111,11 @@ mk OSpake::next(message m) {
 				gcry_mpi_t p;
 				Util::BigIntToMpi(&p, this->G.get_p());
 				gcry_mpi_t *S;
-				S = Util::createIHMEResultSet(this->c);
+				S = createIHMEResultSet(this->c);
 				interpolation_alg2(S, P, this->c, p);
 
 				// have to encode the S as OctetString
-				Botan::OctetString out = Util::encodeS(S, this->c);
+				Botan::OctetString out = encodeS(S, this->c);
 				result.m = out;
 				this->sid.insert(this->sid.end(), out.begin(),out.begin()+out.length());
 
@@ -263,11 +134,11 @@ mk OSpake::next(message m) {
 			for (int var = 0; var < this->c; ++var) {
 				// generate confirmation message for every computed key
 				Botan::OctetString conf;
-				Util::confGen(this->keys[var], &conf, &ivConf, this->sid);
+				confGen(this->keys[var], &conf, &ivConf, this->sid);
 
 				if (conf == confVal){
 					std::cout << "got the key :)\n";
-					Util::keyGen(this->keys[var], &result.k, &ivKey, this->sid);
+					keyGen(this->keys[var], &result.k, &ivKey, this->sid);
 					break; // XXX: we can stop when we found the correct key; Problem: Side-Channel Attacks
 				}
 			}

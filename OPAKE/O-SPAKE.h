@@ -8,8 +8,13 @@
 #ifndef O_SPAKE_H_
 #define O_SPAKE_H_
 
+// The OPAKE Compiler
 #include "ObliviousPAKE.h"
+
+// SPAKE protocol
 #include "../PAKE/SPAKE/Spake.h"
+// The used Admissible Encoding
+#include "../AdmissibleEncoding/PrimeGroupAE.h"
 
 class OSpake : public OPake {
 
@@ -19,15 +24,6 @@ private:
 	Botan::BigInt M, N;
 	std::string crs;
 	bool finished;
-
-//	Botan::BigInt ihmeDecode(message);
-//	gcry_mpi_t* MessageToS(Botan::OctetString, int);
-//	Botan::BigInt MpiToBigInt(gcry_mpi_t);
-//	void addElement(struct point*, int*, Botan::BigInt, Botan::BigInt);
-//	Botan::OctetString encodeS(gcry_mpi_t*);
-//	void addOctetString(Botan::OctetString, std::vector<Botan::byte>*);
-//	void keyGen(Botan::OctetString, Botan::OctetString *, Botan::InitializationVector *);
-//	void confGen(Botan::OctetString, Botan::OctetString *, Botan::InitializationVector *);
 
 public:
 	OSpake(Botan::DL_Group, Botan::BigInt, Botan::BigInt, std::string);
