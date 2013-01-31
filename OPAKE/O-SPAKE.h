@@ -33,8 +33,6 @@ public:
 	OSpake(Botan::DL_Group, Botan::BigInt, Botan::BigInt, std::string);
 	void init(std::vector<std::string>, ROLE, int);
 	mk next(message);
-
 };
-
 
 #endif /* O_SPAKE_H_ */
