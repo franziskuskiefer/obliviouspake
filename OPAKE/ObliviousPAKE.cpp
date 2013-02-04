@@ -23,6 +23,25 @@ gcry_mpi_t* OPake::MessageToS(Botan::OctetString in, int numPwds){
 	return S;
 }
 
+// utility function to convert an OctetString to a gcrypt mpi
+gcry_mpi_t** OPake::MessageToNuS(Botan::OctetString in, int numPwds, int nu){
+	gcry_mpi_t **S;
+	S = (gcry_mpi_t**)calloc(nu, sizeof(gcry_mpi_t*));
+	Botan::u32bit elementLength = 0;
+	size_t nscanned;
+	unsigned long size = 0;
+	for (int i = 0; i < nu; ++i) {
+		S[i] = (gcry_mpi_t*)calloc(numPwds, sizeof(gcry_mpi_t));
+		for(int k = 0; k < numPwds; k++){
+			S[i][k] = gcry_mpi_new(0);
+			elementLength = Botan::BigInt::decode(in.begin()+((k+i*numPwds)*8)+size, 8, Botan::BigInt::Binary).to_u32bit();
+			gcry_mpi_scan(&(S[i][k]), GCRYMPI_FMT_USG, in.begin()+(k+1+i*numPwds)*8*sizeof(Botan::byte)+size, elementLength, &nscanned);
+			size += elementLength;
+		}
+	}
+	return S;
+}
+
 Botan::BigInt OPake::ihmeDecode(message m, Botan::DL_Group G, int c, Botan::BigInt pwd){
 	gcry_mpi_t p;
 	Util::BigIntToMpi(&p, G.get_p());
@@ -34,6 +53,19 @@ Botan::BigInt OPake::ihmeDecode(message m, Botan::DL_Group G, int c, Botan::BigI
 	encoded_public_A_MPI = gcry_mpi_new(0);
 	decode(encoded_public_A_MPI,S,serverPwdNumMPI,c,p);
 	return Util::MpiToBigInt(encoded_public_A_MPI);
+}
+
+Botan::OctetString OPake::nuIhmeDecode(message m, Botan::DL_Group G, int c, int nu, Botan::BigInt pwd){
+	gcry_mpi_t p;
+	Util::BigIntToMpi(&p, G.get_p());
+	// get message from m to S
+	gcry_mpi_t **S = MessageToNuS(m, c, nu);
+	// IHME decode
+	gcry_mpi_t encoded_public_A_MPI, serverPwdNumMPI;
+	Util::BigIntToMpi(&serverPwdNumMPI, pwd);
+	encoded_public_A_MPI = gcry_mpi_new(0);
+	v_fold_interleaving_decode(encoded_public_A_MPI,S,serverPwdNumMPI, nu, c, p);
+	return Util::MpiToOctetString(encoded_public_A_MPI);
 }
 
 // add an element to the IHME encode input structure P

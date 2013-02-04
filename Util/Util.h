@@ -39,6 +39,8 @@ public:
 	static Botan::BigInt MpiToBigInt(gcry_mpi_t);
 	static Botan::BigInt pwdToBigInt(std::string);
 	static void print_mpi (const char *name, gcry_mpi_t a);
+
+	static Botan::OctetString MpiToOctetString(gcry_mpi_t in);
 };
 
 

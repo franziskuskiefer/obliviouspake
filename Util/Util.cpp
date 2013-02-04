@@ -19,12 +19,25 @@ void Util::BigIntToMpi(gcry_mpi_t *mpiResult, Botan::BigInt in){
 // utility function to convert a gcrypt mpi to a Botan BigInt
 Botan::BigInt Util::MpiToBigInt(gcry_mpi_t in){
 	unsigned char *buf;
-	gcry_mpi_aprint (GCRYMPI_FMT_USG, &buf, NULL, in);
-	Botan::BigInt bigIntResult = Botan::BigInt::decode(buf, ceil((double)gcry_mpi_get_nbits(in)/8), Botan::BigInt::Binary);
+	size_t length;
+	gcry_mpi_aprint (GCRYMPI_FMT_USG, &buf, &length, in);
+	Botan::BigInt bigIntResult = Botan::BigInt::decode(buf, length, Botan::BigInt::Binary);
 	gcry_free (buf);
 
 	return bigIntResult;
 }
+
+// utility function to convert a gcrypt mpi to a Botan OctetString
+Botan::OctetString Util::MpiToOctetString(gcry_mpi_t in){
+	unsigned char *buf;
+	size_t length;
+	gcry_mpi_aprint (GCRYMPI_FMT_USG, &buf, &length, in);
+	Botan::OctetString result(buf, length);
+	gcry_free (buf);
+
+	return result;
+}
+
 
 /**
  * Utility function to convert a password string into a BigInt

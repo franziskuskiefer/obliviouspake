@@ -108,6 +108,10 @@ void RG_DDH::messageDecode(message m, Botan::BigInt &s, Ciphertext &c){
 	s = Botan::BigInt(encodedS.begin(), encodedS.length());
 }
 
+void RG_DDH::messageEncode(message& m, Botan::BigInt s, Ciphertext c){
+	m = encodeMessage(c, s);
+}
+
 /**
  * calculate next message based on incoming message
  */

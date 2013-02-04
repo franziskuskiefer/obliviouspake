@@ -40,6 +40,7 @@ public:
 	};
 
 	static void messageDecode(message, Botan::BigInt&, Ciphertext&);
+	static void messageEncode(message&, Botan::BigInt, Ciphertext);
 };
 
 #endif /* SPAKE_H_ */
