@@ -23,7 +23,6 @@ private:
 	Botan::DL_Group G;
 	Botan::BigInt M, N;
 	std::string crs;
-	bool finished;
 
 public:
 	OSpake(Botan::DL_Group, Botan::BigInt, Botan::BigInt, std::string);

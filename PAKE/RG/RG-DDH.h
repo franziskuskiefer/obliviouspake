@@ -21,9 +21,7 @@ private:
 	// member variables for internal state
 	CramerShoup cs;
 	CramerShoupSPHash csHash;
-	Botan::BigInt pwd;
 	std::string ids;
-	ROLE r;
 	key k;
 
 	Ciphertext c1, c2;
@@ -40,6 +38,8 @@ public:
 	~RG_DDH(){
 		// nothing here yet...
 	};
+
+	static void messageDecode(message, Botan::BigInt&, Ciphertext&);
 };
 
 #endif /* SPAKE_H_ */

@@ -12,8 +12,6 @@ OSpake::OSpake(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string 
 	this->M = M;
 	this->N = N;
 	this->crs = crs;
-	Spake *tmp = new Spake(G, M, N, crs);
-	this->procs.push_back(boost::shared_ptr<Pake>(tmp));
 	finished = false;
 }
 
@@ -24,9 +22,12 @@ void OSpake::init(std::vector<std::string> pwds, ROLE role, int c) {
 			Spake *tmp = new Spake(this->G, this->M, this->N, this->crs);
 			this->procs.push_back(boost::shared_ptr<Pake>(tmp));
 		}
-		for(int i = 0; i < c ; ++i)
+		for(int i = 0; i < c ; ++i){
 			this->procs[i]->init(pwds[i], role);
+		}
 	} else { // there is only one instance for the server with one password
+		Spake *tmp = new Spake(this->G, this->M, this->N, this->crs);
+		this->procs.push_back(boost::shared_ptr<Pake>(tmp));
 		this->procs[0]->init(pwds[0], role);
 	}
 }
@@ -83,6 +84,7 @@ mk OSpake::next(message m) {
 			for (int k = 0; k < this->c; k++)
 				initpoint(&P[k]);
 			int pos = 0;
+			PrimeGroupAE ae(&this->G);
 			for (int i = 0; i < this->c; ++i) { //FIXME: incoming m could be empty!
 				mk piResult = this->procs[i]->next(m);
 				if (piResult.m.length() == 0) {// there is no message anymore.... stop the bloody protocol
@@ -91,7 +93,6 @@ mk OSpake::next(message m) {
 					this->finished = true;
 				} else { // only if there is really a message from Pi.next, we have to process it
 					// encode the client's (Alice) messages (admissible encoding)
-					PrimeGroupAE ae(&this->G);
 					Botan::BigInt out = Botan::BigInt("0x"+piResult.m.as_string()); // FIXME: get BigInt direct from Pi!
 
 					// add admissible encoding
@@ -106,6 +107,7 @@ mk OSpake::next(message m) {
 			}
 			result.k = this->keys[1]; // FIXME: have to return all keys....
 
+			// we don't have a message in the last round (only confirmation and key calculation there)
 			if (!this->finished){
 				// compute IHME structure S from P with c passwords and modulus p
 				gcry_mpi_t p;

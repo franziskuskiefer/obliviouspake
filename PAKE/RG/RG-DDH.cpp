@@ -101,6 +101,13 @@ void RG_DDH::computeMacandKey(Botan::OctetString &t, Botan::OctetString &key){
 	key ^= toXor;
 }
 
+void RG_DDH::messageDecode(message m, Botan::BigInt &s, Ciphertext &c){
+	Botan::OctetString encodedC, encodedS;
+	decodeMessage(m, encodedC, encodedS);
+	c = CramerShoup::decodeCiphertext(encodedC);
+	s = Botan::BigInt(encodedS.begin(), encodedS.length());
+}
+
 /**
  * calculate next message based on incoming message
  */
@@ -125,11 +132,7 @@ mk RG_DDH::next(message m){
 		result.m = encodeMessage(this->c2, this->s1);
 	} else if (m.length() > 0 && this->c1.e.size() != 0 && this->c2.e.size() == 0) {
 		this->csHash.keyGen(this->cs.getKp().pk);
-		Botan::OctetString encodedC, encodedS;
-		decodeMessage(m, encodedC, encodedS);
-		this->c2 = CramerShoup::decodeCiphertext(encodedC);
-
-		this->s1 = Botan::BigInt(encodedS.begin(), encodedS.length());
+		messageDecode(m, this->s1, this->c2);
 
 		std::vector<Botan::byte> tmpCVec;
 		addCiphertext(tmpCVec, this->c1);

@@ -65,9 +65,25 @@ Botan::OctetString OPake::encodeS(gcry_mpi_t *S, int c){
 		unsigned char *buf;
 		size_t length;
 		gcry_mpi_aprint (GCRYMPI_FMT_USG, &buf, &length, S[i]);
-		Botan::OctetString tmpOct(buf, length);//ceil((double)gcry_mpi_get_nbits(S[i])/8));
+		Botan::OctetString tmpOct(buf, length);
 		gcry_free (buf);
 		addOctetString(tmpOct, &vec);
+	}
+	Botan::OctetString encoded(reinterpret_cast<const Botan::byte*>(&vec[0]), vec.size());
+	return encoded;
+}
+
+Botan::OctetString OPake::encodeNuS(gcry_mpi_t **S, int c, int nu){
+	std::vector<Botan::byte> vec;
+	for (int j = 0; j < nu; ++j) {
+		for(int i = 0; i < c; ++i) {
+			unsigned char *buf;
+			size_t length;
+			gcry_mpi_aprint (GCRYMPI_FMT_USG, &buf, &length, S[j][i]);
+			Botan::OctetString tmpOct(buf, length);
+			gcry_free (buf);
+			addOctetString(tmpOct, &vec);
+		}
 	}
 	Botan::OctetString encoded(reinterpret_cast<const Botan::byte*>(&vec[0]), vec.size());
 	return encoded;
@@ -106,10 +122,25 @@ Botan::SecureVector<Botan::byte> OPake::PRF(Botan::OctetString k, Botan::SecureV
 }
 
 // initializes an IHME result set S (output of IHME encode function)
+// TODO: Need clean up function for S
 gcry_mpi_t* OPake::createIHMEResultSet(int numPwds){
 	gcry_mpi_t *S;
 	S = (gcry_mpi_t*)calloc(numPwds, sizeof(gcry_mpi_t));
 	for(int k = 0; k < numPwds; k++)
 		S[k] = gcry_mpi_new(0);
+	return S;
+}
+
+// initializes an IHME result set S (output of IHME encode function)
+// TODO: Need clean up function for S
+gcry_mpi_t** OPake::createNuIHMEResultSet(int numPwds, int nu){
+	gcry_mpi_t **S;
+	S = (gcry_mpi_t**)calloc(nu, sizeof(gcry_mpi_t*));
+	for(int k = 0; k < nu; k++) {
+		S[k] = (gcry_mpi_t*)calloc(numPwds, sizeof(gcry_mpi_t));
+		for (int i=0; i < numPwds; i++) {
+			S[k][i] = gcry_mpi_new(0);
+		}
+	}
 	return S;
 }

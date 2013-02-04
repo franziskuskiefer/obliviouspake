@@ -44,6 +44,10 @@ public:
 	~PrimeGroupAE(){
 		// nothing here yet...
 	}
+
+	const z_p_star& getZ() const {
+		return Z;
+	}
 };
 
 

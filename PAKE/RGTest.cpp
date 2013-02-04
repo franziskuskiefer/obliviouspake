@@ -13,7 +13,7 @@
 #include "RG/RG-DDH.h"
 
 void test1(Botan::DL_Group G, std::string pwd, CramerShoup *cs, std::string ids){
-	// create Spake Server & Client instances
+	// create RGpake Server & Client instances
 	PublicKey pk = cs->getKp().pk;
 	RG_DDH server(&G, ids, &pk), client(&G, ids, &pk);
 	server.init(pwd, SERVER);

@@ -51,6 +51,4 @@ int main(int argc, char **argv) {
 	const std::string session_param = "Alice and Bob's shared session parameter";
 
 	test1(G, M, N, session_param, pwd, pwds);
-//	test2(G, M, N, session_param, pwd);
-//	test3(G, M, N, session_param, pwd);
 }

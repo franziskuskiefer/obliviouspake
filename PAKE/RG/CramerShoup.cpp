@@ -20,7 +20,7 @@ CramerShoup::CramerShoup(PublicKey pk) {
 }
 
 void CramerShoup::keyGen(Botan::DL_Group G) {
-	// tmp variables for performance...
+	// tmp variables ...
 	Botan::BigInt g = G.get_g();
 	Botan::BigInt p = G.get_p();
 	Botan::BigInt q = G.get_q();
@@ -71,6 +71,7 @@ Ciphertext CramerShoup::encrypt(Botan::BigInt m, std::string l) {
 	return c;
 }
 
+// XXX: unused, so not well tested!
 Botan::BigInt CramerShoup::decrypt(Ciphertext c, std::string l) {
 	Botan::BigInt m;
 
@@ -95,22 +96,17 @@ void CramerShoup::addBigInt(Botan::BigInt toAdd, std::vector<Botan::byte> *vec) 
 	vec->insert(vec->end(), in.begin(), in.begin()+size);
 }
 
-// FIXME: does not work with elements of different size --> is this really necessary?
 Ciphertext CramerShoup::decodeCiphertext(Botan::OctetString in){
 	Ciphertext c;
 
-	// we don't have longer numbers...
-	Botan::u32bit elementLength = Botan::BigInt::decode(in.begin(), 8, Botan::BigInt::Binary).to_u32bit();
-	c.u1 = Botan::BigInt::decode(in.begin()+8*sizeof(Botan::byte), elementLength);
-
-	elementLength = Botan::BigInt::decode(in.begin()+8+elementLength, 8, Botan::BigInt::Binary).to_u32bit();
-	c.u2 = Botan::BigInt::decode(in.begin()+2*8*sizeof(Botan::byte)+elementLength, elementLength);
-
-	elementLength = Botan::BigInt::decode(in.begin()+2*(8+elementLength), 8, Botan::BigInt::Binary).to_u32bit();
-	c.e = Botan::BigInt::decode(in.begin()+3*8*sizeof(Botan::byte)+2*(elementLength), elementLength);
-
-	elementLength = Botan::BigInt::decode(in.begin()+3*(8+elementLength), 8, Botan::BigInt::Binary).to_u32bit();
-	c.v = Botan::BigInt::decode(in.begin()+4*8*sizeof(Botan::byte)+3*(elementLength), elementLength);
+	Botan::u32bit elementLength = 0;
+	unsigned long size = 0;
+	Botan::BigInt* ciphers[] = {&c.u1, &c.u2, &c.e, &c.v};
+	for(int k = 0; k < 4; k++){
+		elementLength = Botan::BigInt::decode(in.begin()+k*8+size, 8, Botan::BigInt::Binary).to_u32bit();
+		*(ciphers[k]) = Botan::BigInt::decode(in.begin()+(k+1)*8*sizeof(Botan::byte)+size, elementLength);
+		size += elementLength;
+	}
 
 	return c;
 }

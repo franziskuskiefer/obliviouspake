@@ -20,6 +20,8 @@ class OPake {
 protected:
 
 	int c;
+	bool finished;
+	std::string crs;
 	std::vector<boost::shared_ptr<Pake> > procs;
 	std::vector<Botan::byte> sid;
 	std::vector<Botan::OctetString> keys;
@@ -34,6 +36,8 @@ protected:
 	gcry_mpi_t* MessageToS(Botan::OctetString, int);
 	Botan::BigInt ihmeDecode(message,Botan::DL_Group, int, Botan::BigInt);
 	gcry_mpi_t* createIHMEResultSet(int);
+	gcry_mpi_t** createNuIHMEResultSet(int, int);
+	Botan::OctetString encodeNuS(gcry_mpi_t **, int, int);
 
 public:
 	virtual void init(std::vector<std::string>, ROLE, int) = 0;
