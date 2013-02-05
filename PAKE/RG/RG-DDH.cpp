@@ -76,6 +76,7 @@ void addCiphertext(std::vector<Botan::byte> &vec, Ciphertext &c){
 }
 
 void RG_DDH::computeMacandKey(Botan::OctetString &t, Botan::OctetString &key){
+	std::cout << "----------------------- computeMacandKey -----------------------\n";
 	// shorten key first // XXX: security?
 	Botan::Pipe hashPipe(new Botan::Hash_Filter("SHA-256"));
 	hashPipe.process_msg(Botan::BigInt::encode(this->sk1));
@@ -85,12 +86,23 @@ void RG_DDH::computeMacandKey(Botan::OctetString &t, Botan::OctetString &key){
 	Botan::Pipe macPipe(new Botan::MAC_Filter("HMAC(SHA-256)", key));
 	// create MAC input
 	std::vector<Botan::byte> macIn;
+
 	addCiphertext(macIn, this->c1);
+//	std::cout << "c1:\n" << this->c1.as_string() << std::endl;
+
 	Botan::SecureVector<Botan::byte> tmp = Botan::BigInt::encode(this->s1);
 	macIn.insert(macIn.end(), tmp.begin(), tmp.begin()+tmp.size());
+//	std::cout << "s1:\n" << Botan::OctetString(tmp).as_string() << std::endl;
+
 	addCiphertext(macIn, this->c2);
+//	std::cout << "c2:\n" << this->c2.as_string() << std::endl;
+
 	tmp = Botan::BigInt::encode(this->s2);
 	macIn.insert(macIn.end(), tmp.begin(), tmp.begin()+tmp.size());
+//	std::cout << "s2:\n" << Botan::OctetString(tmp).as_string() << std::endl;
+
+//	std::cout << "macIn: " << Botan::OctetString(&(macIn[0]), macIn.size()).as_string() << std::endl;
+
 	macPipe.process_msg(&(macIn[0]), macIn.size());
 	t = Botan::OctetString(macPipe.read_all(0));
 
@@ -99,6 +111,7 @@ void RG_DDH::computeMacandKey(Botan::OctetString &t, Botan::OctetString &key){
 
 	// compute also final key
 	key ^= toXor;
+	std::cout << "----------------------- END - computeMacandKey -----------------------\n";
 }
 
 void RG_DDH::messageDecode(message m, Botan::BigInt &s, Ciphertext &c){
@@ -165,6 +178,8 @@ mk RG_DDH::next(message m){
 		// get t and s2
 		Botan::OctetString t, s;
 		decodeMessage(m, t, s);
+		std::cout << "t: " << t.as_string() << std::endl;
+		std::cout << "s: " << s.as_string() << std::endl;
 		this->s2 = Botan::BigInt(s.begin(), s.length());
 		this->sk2 = Botan::power_mod(this->s2, this->cs.getR(), this->cs.getKp().pk.G.get_p());
 
@@ -175,6 +190,7 @@ mk RG_DDH::next(message m){
 			result.k = key;
 			this->k = key;
 		} else {
+			std::cout << "Error! ----- MAC check failed!\n";
 			// error...something went wrong, so we have no key
 		}
 	}

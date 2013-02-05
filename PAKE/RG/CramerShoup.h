@@ -17,6 +17,7 @@
 #include <botan/sha2_32.h>
 
 #include <iostream>
+#include <sstream>
 
 struct PublicKey {
 	Botan::BigInt c, d, h, g2;
@@ -34,6 +35,16 @@ struct KeyPair {
 
 struct Ciphertext {
 	Botan::BigInt u1, u2, e, v;
+
+public:
+	std::string as_string(){
+		std::stringstream ss;
+		ss << "u1: " << std::hex << u1 << std::endl;
+		ss << "u2: " << std::hex << u2 << std::endl;
+		ss << "e: " << std::hex << e << std::endl;
+		ss << "v: " << std::hex << v << std::endl;
+		return ss.str();
+	}
 };
 
 class CramerShoup {

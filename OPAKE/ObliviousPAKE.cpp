@@ -171,6 +171,12 @@ void OPake::decodeFinalMessage(message m, Botan::OctetString &ivKey, Botan::Octe
 	ivConf = Botan::OctetString(m.begin()+3*8*sizeof(Botan::byte)+confLength+ivLength, ivLength);
 }
 
+void OPake::splitFinalCombinedMessage(Botan::OctetString m, Botan::OctetString &min, Botan::OctetString &conf){
+	Botan::u32bit length = Botan::BigInt::decode(m.begin(), 8, Botan::BigInt::Binary).to_u32bit()+8;
+	length += 32; // FIXME: have to make this length variable!!!
+	Util::OctetStringSplit(m, min, conf, length);
+}
+
 // initializes an IHME result set S (output of IHME encode function)
 // TODO: Need clean up function for S
 gcry_mpi_t* OPake::createIHMEResultSet(int numPwds){

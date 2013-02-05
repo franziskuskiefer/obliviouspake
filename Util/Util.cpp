@@ -75,3 +75,8 @@ void Util::OctetStringConcat(Botan::OctetString &first, Botan::OctetString secon
 
 	first = concatenated;
 }
+
+void Util::OctetStringSplit(Botan::OctetString in, Botan::OctetString &first, Botan::OctetString &second, Botan::u32bit sizeOfFirst) {
+	first = Botan::OctetString(in.begin(), sizeOfFirst);
+	second = Botan::OctetString(in.begin()+sizeOfFirst, in.length()-sizeOfFirst);
+}
