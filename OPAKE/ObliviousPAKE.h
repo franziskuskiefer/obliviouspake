@@ -33,6 +33,7 @@ protected:
 	void keyGen(Botan::OctetString, Botan::OctetString *, Botan::InitializationVector *, std::vector<Botan::byte>);
 	void confGen(Botan::OctetString, Botan::OctetString *, Botan::InitializationVector *, std::vector<Botan::byte>);
 	Botan::SecureVector<Botan::byte> PRF(Botan::OctetString, Botan::SecureVector<Botan::byte>, std::string, Botan::InitializationVector *);
+	mk finalServerMessage(mk);
 	gcry_mpi_t* MessageToS(Botan::OctetString, int);
 	gcry_mpi_t** MessageToNuS(Botan::OctetString, int, int);
 	Botan::BigInt ihmeDecode(message,Botan::DL_Group, int, Botan::BigInt);

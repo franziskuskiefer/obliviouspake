@@ -153,6 +153,24 @@ Botan::SecureVector<Botan::byte> OPake::PRF(Botan::OctetString k, Botan::SecureV
 	return out;
 }
 
+mk OPake::finalServerMessage(mk min){
+	mk result;
+	Botan::SecureVector<Botan::byte> confVal;
+	Botan::InitializationVector ivKey, ivConf;
+	Botan::OctetString finalK;
+	keyGen(min.k, &finalK, &ivKey, this->sid);
+	confGen(min.k, &min.m, &ivConf, this->sid);
+	result.k = finalK;
+
+	// add IVs to message
+	std::vector<Botan::byte> out;
+	addOctetString(min.m, &out);
+	addOctetString(ivKey, &out);
+	addOctetString(ivConf, &out);
+	result.m = Botan::OctetString(reinterpret_cast<const Botan::byte*>(&out[0]), out.size());
+	return result;
+}
+
 // initializes an IHME result set S (output of IHME encode function)
 // TODO: Need clean up function for S
 gcry_mpi_t* OPake::createIHMEResultSet(int numPwds){

@@ -59,19 +59,20 @@ mk OSpake::next(message m) {
 		// calculate confirmation message and real final key
 		if (result.m.length() == 0){
 			std::cout << "creating confirmation message and final key...\n";
-			Botan::SecureVector<Botan::byte> confVal;
-			Botan::OctetString finalK;
-			Botan::InitializationVector ivKey, ivConf;
-			keyGen(result.k, &finalK, &ivKey, this->sid);
-			confGen(result.k, &result.m, &ivConf, this->sid);
-			result.k = finalK;
-
-			// add IVs to message
-			std::vector<Botan::byte> out;
-			addOctetString(result.m, &out);
-			addOctetString(ivKey, &out);
-			addOctetString(ivConf, &out);
-			result.m = Botan::OctetString(reinterpret_cast<const Botan::byte*>(&out[0]), out.size());
+//			Botan::SecureVector<Botan::byte> confVal;
+//			Botan::OctetString finalK;
+//			Botan::InitializationVector ivKey, ivConf;
+//			keyGen(result.k, &finalK, &ivKey, this->sid);
+//			confGen(result.k, &result.m, &ivConf, this->sid);
+//			result.k = finalK;
+//
+//			// add IVs to message
+//			std::vector<Botan::byte> out;
+//			addOctetString(result.m, &out);
+//			addOctetString(ivKey, &out);
+//			addOctetString(ivConf, &out);
+//			result.m = Botan::OctetString(reinterpret_cast<const Botan::byte*>(&out[0]), out.size());
+			result = finalServerMessage(result);
 		}
 	} else { // this has to be a client....
 		if (!this->finished){ // normal PAKE computations here
