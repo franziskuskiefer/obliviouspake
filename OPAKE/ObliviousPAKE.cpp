@@ -82,15 +82,6 @@ void OPake::addElement(struct point *P, int *pos, Botan::BigInt pwd, Botan::BigI
 	++*pos;
 }
 
-void OPake::addOctetString(Botan::OctetString toAdd, std::vector<Botan::byte> *vec) {
-	Botan::SecureVector<Botan::byte> in(toAdd.begin(), toAdd.length());
-	size_t size = in.size();
-	for(size_t j = 0; j != sizeof(size_t); j++){
-		vec->push_back(Botan::get_byte(j, size));
-	}
-	vec->insert(vec->end(), in.begin(), in.begin()+size);
-}
-
 Botan::OctetString OPake::encodeS(gcry_mpi_t *S, int c){
 	std::vector<Botan::byte> vec;
 	for(int i = 0; i < c; ++i) {
@@ -99,7 +90,7 @@ Botan::OctetString OPake::encodeS(gcry_mpi_t *S, int c){
 		gcry_mpi_aprint (GCRYMPI_FMT_USG, &buf, &length, S[i]);
 		Botan::OctetString tmpOct(buf, length);
 		gcry_free (buf);
-		addOctetString(tmpOct, &vec);
+		Util::addOctetStringToVector(tmpOct, &vec, true);
 	}
 	Botan::OctetString encoded(reinterpret_cast<const Botan::byte*>(&vec[0]), vec.size());
 	return encoded;
@@ -114,7 +105,7 @@ Botan::OctetString OPake::encodeNuS(gcry_mpi_t **S, int c, int nu){
 			gcry_mpi_aprint (GCRYMPI_FMT_USG, &buf, &length, S[j][i]);
 			Botan::OctetString tmpOct(buf, length);
 			gcry_free (buf);
-			addOctetString(tmpOct, &vec);
+			Util::addOctetStringToVector(tmpOct, &vec, true);
 		}
 	}
 	Botan::OctetString encoded(reinterpret_cast<const Botan::byte*>(&vec[0]), vec.size());
@@ -164,11 +155,20 @@ mk OPake::finalServerMessage(mk min){
 
 	// add IVs to message
 	std::vector<Botan::byte> out;
-	addOctetString(min.m, &out);
-	addOctetString(ivKey, &out);
-	addOctetString(ivConf, &out);
+	Util::addOctetStringToVector(min.m, &out, true);
+	Util::addOctetStringToVector(ivKey, &out, true);
+	Util::addOctetStringToVector(ivConf, &out, true);
 	result.m = Botan::OctetString(reinterpret_cast<const Botan::byte*>(&out[0]), out.size());
 	return result;
+}
+
+void OPake::decodeFinalMessage(message m, Botan::OctetString &ivKey, Botan::OctetString &ivConf, Botan::SecureVector<Botan::byte> &confVal){
+	Botan::u32bit confLength = Botan::BigInt::decode(m.begin(), 8, Botan::BigInt::Binary).to_u32bit();
+	confVal = Botan::SecureVector<Botan::byte>(m.begin()+8*sizeof(Botan::byte), confLength);
+
+	Botan::u32bit ivLength = Botan::BigInt::decode(m.begin()+8+confLength, 8, Botan::BigInt::Binary).to_u32bit();
+	ivKey = Botan::OctetString(m.begin()+2*8*sizeof(Botan::byte)+confLength, ivLength);
+	ivConf = Botan::OctetString(m.begin()+3*8*sizeof(Botan::byte)+confLength+ivLength, ivLength);
 }
 
 // initializes an IHME result set S (output of IHME encode function)

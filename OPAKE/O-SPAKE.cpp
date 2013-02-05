@@ -59,19 +59,6 @@ mk OSpake::next(message m) {
 		// calculate confirmation message and real final key
 		if (result.m.length() == 0){
 			std::cout << "creating confirmation message and final key...\n";
-//			Botan::SecureVector<Botan::byte> confVal;
-//			Botan::OctetString finalK;
-//			Botan::InitializationVector ivKey, ivConf;
-//			keyGen(result.k, &finalK, &ivKey, this->sid);
-//			confGen(result.k, &result.m, &ivConf, this->sid);
-//			result.k = finalK;
-//
-//			// add IVs to message
-//			std::vector<Botan::byte> out;
-//			addOctetString(result.m, &out);
-//			addOctetString(ivKey, &out);
-//			addOctetString(ivConf, &out);
-//			result.m = Botan::OctetString(reinterpret_cast<const Botan::byte*>(&out[0]), out.size());
 			result = finalServerMessage(result);
 		}
 	} else { // this has to be a client....
@@ -125,13 +112,10 @@ mk OSpake::next(message m) {
 				// FIXME: when can we set finished?
 				this->finished = true;
 			}
-		} else { // Here Pi finished and the incomming message is the confirmation message
-			Botan::u32bit confLength = Botan::BigInt::decode(m.begin(), 8, Botan::BigInt::Binary).to_u32bit();
-			Botan::SecureVector<Botan::byte> confVal(m.begin()+8*sizeof(Botan::byte), confLength);
-
-			Botan::u32bit ivLength = Botan::BigInt::decode(m.begin()+8+confLength, 8, Botan::BigInt::Binary).to_u32bit();
-			Botan::OctetString ivKey(m.begin()+2*8*sizeof(Botan::byte)+confLength, ivLength);
-			Botan::OctetString ivConf(m.begin()+3*8*sizeof(Botan::byte)+confLength+ivLength, ivLength);
+		} else { // Here Pi finished and the incoming message is the confirmation message
+			Botan::OctetString ivKey, ivConf;
+			Botan::SecureVector<Botan::byte> confVal;
+			decodeFinalMessage(m, ivKey, ivConf, confVal);
 
 			// compute keys for Client
 			for (int var = 0; var < this->c; ++var) {

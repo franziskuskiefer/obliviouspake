@@ -41,6 +41,9 @@ public:
 	static void print_mpi (const char *name, gcry_mpi_t a);
 
 	static Botan::OctetString MpiToOctetString(gcry_mpi_t in);
+
+	static void addOctetStringToVector(Botan::OctetString toAdd, std::vector<Botan::byte> *vec, bool addLength);
+	static void OctetStringConcat(Botan::OctetString &first, Botan::OctetString second, bool addLength);
 };
 
 

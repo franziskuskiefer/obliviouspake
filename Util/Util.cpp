@@ -57,3 +57,21 @@ void Util::print_mpi (const char *name, gcry_mpi_t a) {
 	gcry_free (buf);
 }
 
+void Util::addOctetStringToVector(Botan::OctetString toAdd, std::vector<Botan::byte> *vec, bool addLength) {
+	size_t size = toAdd.length();
+	if (addLength) {
+		for(size_t j = 0; j != sizeof(size_t); j++){
+			vec->push_back(Botan::get_byte(j, size));
+		}
+	}
+	vec->insert(vec->end(), toAdd.begin(), toAdd.begin()+size);
+}
+
+void Util::OctetStringConcat(Botan::OctetString &first, Botan::OctetString second, bool addLength) {
+	std::vector<Botan::byte> tmp;
+	addOctetStringToVector(first, &tmp, addLength);
+	addOctetStringToVector(second, &tmp, addLength);
+	Botan::OctetString concatenated(reinterpret_cast<const Botan::byte*>(&tmp[0]), tmp.size());
+
+	first = concatenated;
+}
