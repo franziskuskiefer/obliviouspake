@@ -22,8 +22,11 @@ void test1(Botan::DL_Group G, std::string pwd, std::vector<std::string> pwds, Cr
 	// first message is empty obiously...
 	message m0;
 	mk s1 = server.next(m0); // c
+	std::cout << "m1(server): " << s1.m.as_string() << "\n";
 	mk c1 = client.next(s1.m);
+	std::cout << "m1(client): " << c1.m.as_string() << "\n";
 	mk s2 = server.next(c1.m);
+	std::cout << "m2(server): " << s2.m.as_string() << "\n";
 	mk c2 = client.next(s2.m);
 	std::cout << "Client key: " << c2.k.as_string() << "\n";
 	std::cout << "Server key: " << s2.k.as_string() << "\n";
