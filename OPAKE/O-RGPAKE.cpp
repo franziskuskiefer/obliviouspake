@@ -43,25 +43,18 @@ mk ORGpake::next(message m) {
 			Util::BigIntToMpi(&p, ae.getNae().getEll());
 			int nu = 5;
 			Botan::OctetString aeDecodedM = nuIhmeDecode(m, this->G, c, nu, this->procs[0]->getPwd(), p);
-			std::cout << "aeDecodedM\n" << aeDecodedM.as_string() << std::endl;
 			size_t length = ae.getNae().getEll().bits()/8;
-			std::cout << "length: " << length << std::endl;
 			Botan::BigInt s = Botan::BigInt::decode(aeDecodedM.begin(), length, Botan::BigInt::Binary);
 			Botan::BigInt u1 = Botan::BigInt::decode(aeDecodedM.begin()+length, length, Botan::BigInt::Binary);
 			Botan::BigInt u2 = Botan::BigInt::decode(aeDecodedM.begin()+2*length, length, Botan::BigInt::Binary);
 			Botan::BigInt e = Botan::BigInt::decode(aeDecodedM.begin()+3*length, length, Botan::BigInt::Binary);
 			Botan::BigInt v = Botan::BigInt::decode(aeDecodedM.begin()+4*length, length, Botan::BigInt::Binary);
-			std::cout << "----- server enc u1 -----\n" << std::hex << u1 << std::endl;
-			std::cout << "----- server enc u2 -----\n" << std::hex << u2 << std::endl;
-			std::cout << "----- server enc e -----\n" << std::hex << e << std::endl;
-			std::cout << "----- server enc v -----\n" << std::hex << v << std::endl;
 			s = ae.decode(s);
 			u1 = ae.decode(u1);
 			u2 = ae.decode(u2);
 			e = ae.decode(e);
 			v = ae.decode(v);
 			Ciphertext c = {u1, u2, e, v};
-			std::cout << "----- server c2 -----\n" << c.as_string() << std::endl;
 			RG_DDH::messageEncode(messageIn, s, c);
 		} else {
 			messageIn = m;
@@ -118,20 +111,9 @@ mk ORGpake::next(message m) {
 					Botan::OctetString ence(Botan::BigInt::encode(ae.encode(c.e)));
 					Botan::OctetString encv(Botan::BigInt::encode(ae.encode(c.v)));
 
-					if (i == 1) {
-						std::cout << "----- c2 -----\n" << c.as_string() << std::endl;
-						std::cout << "----- enc u1 -----\n" << encu1.as_string()  << std::endl;
-						std::cout << "----- enc u2 -----\n" << encu2.as_string()  << std::endl;
-						std::cout << "----- enc e -----\n" << ence.as_string()  << std::endl;
-						std::cout << "----- enc v -----\n" << encv.as_string()  << std::endl;
-					}
-
 					std::vector<Botan::byte> tmp;
 					Botan::OctetString *ens[5] = {&encs, &encu1, &encu2, &ence, &encv};
 					for (int j = 0; j < 5; ++j) {
-						// FIXME: fill with zeros?
-						std::cout << "ae.length: "  << (ae.getNae().getEll().bits()/8) << std::endl;
-						std::cout << "ens.length: " << ens[j]->length() << std::endl;
 						int i = (ae.getNae().getEll().bits()/8) - ens[j]->length();
 						while (i > 0){
 							std::cout << "have to pad with zeros....\n";
@@ -144,12 +126,6 @@ mk ORGpake::next(message m) {
 
 					// add admissible encoding and add out to IHME structure P
 					addElement(P, &pos, this->procs[i]->getPwd(), aeEns);
-
-					if (i == 1){
-						std::cout << "----- P -----\n";
-						Util::print_mpi("", P[1].x);
-						Util::print_mpi("", P[1].y);
-					}
 				}
 
 				// store also the key in the vector // FIXME: has to be done different!
@@ -181,9 +157,6 @@ mk ORGpake::next(message m) {
 			// add incoming message to sid (only min, conf needs sid)
 			this->sid.insert(this->sid.end(), min.begin(), min.begin()+min.length());
 
-			std::cout << "min: " << min.as_string() << std::endl;
-			std::cout << "conf: " << conf.as_string() << std::endl;
-
 			// we have to run RG PAKE a last time at first
 			// clear key vector first
 			this->keys.clear();
@@ -197,17 +170,13 @@ mk ORGpake::next(message m) {
 			Botan::OctetString ivKey, ivConf;
 			Botan::SecureVector<Botan::byte> confVal;
 			decodeFinalMessage(conf, ivKey, ivConf, confVal);
-			std::cout << "ivConf: " << ivConf.as_string() << std::endl;
-			std::cout << "confVal: " << Botan::OctetString(confVal).as_string()  << std::endl;
 
 			// compute keys for Client
 			for (int var = 0; var < this->c; ++var) {
 				// generate confirmation message for every computed key
 				Botan::OctetString conf;
-				std::cout << "key: " << this->keys[var].as_string() << std::endl;
 				if (this->keys[var].length() != 0) {
 					confGen(this->keys[var], &conf, &ivConf, this->sid);
-					std::cout << "confVal: " << conf.as_string()  << std::endl;
 
 					if (conf == confVal){
 						std::cout << "got the key :)\n";
