@@ -45,7 +45,9 @@ mk OSpake::next(message m) {
 		if (m.length() != 0){
 			// get correct message first
 			PrimeGroupAE ae(&this->G);
-			Botan::BigInt aeDecodedM = ihmeDecode(m, this->G, c, this->procs[0]->getPwd());
+			gcry_mpi_t p;
+			Util::BigIntToMpi(&p, ae.getNae().getEll());
+			Botan::BigInt aeDecodedM = ihmeDecode(m, this->G, c, this->procs[0]->getPwd(), p);
 			Botan::BigInt message = ae.decode(aeDecodedM);//decodeMessage(m)
 			messageIn = Botan::OctetString(Botan::BigInt::encode(message));
 		} else {
@@ -62,6 +64,9 @@ mk OSpake::next(message m) {
 			result = finalServerMessage(result);
 		}
 	} else { // this has to be a client....
+		// Need this all over the place!
+		PrimeGroupAE ae(&this->G);
+
 		if (!this->finished){ // normal PAKE computations here
 			// clear key vector
 			this->keys.clear();
@@ -72,7 +77,6 @@ mk OSpake::next(message m) {
 			for (int k = 0; k < this->c; k++)
 				initpoint(&P[k]);
 			int pos = 0;
-			PrimeGroupAE ae(&this->G);
 			for (int i = 0; i < this->c; ++i) { //FIXME: incoming m could be empty!
 				mk piResult = this->procs[i]->next(m);
 				if (piResult.m.length() == 0) {// there is no message anymore.... stop the bloody protocol
@@ -99,7 +103,7 @@ mk OSpake::next(message m) {
 			if (!this->finished){
 				// compute IHME structure S from P with c passwords and modulus p
 				gcry_mpi_t p;
-				Util::BigIntToMpi(&p, this->G.get_p());
+				Util::BigIntToMpi(&p, ae.getNae().getEll());
 				gcry_mpi_t *S;
 				S = createIHMEResultSet(this->c);
 				interpolation_alg2(S, P, this->c, p);

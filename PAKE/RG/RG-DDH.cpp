@@ -83,7 +83,7 @@ void RG_DDH::computeMacandKey(Botan::OctetString &t, Botan::OctetString &key){
 	hashPipe.process_msg(Botan::BigInt::encode(this->sk2));
 
 	key = Botan::SymmetricKey(hashPipe.read_all(0));
-	Botan::Pipe macPipe(new Botan::MAC_Filter("HMAC(SHA-256)", key));
+	Botan::Pipe macPipe(new Botan::MAC_Filter("CBC-MAC(AES-256)", key)); //HMAC(SHA-256)
 	// create MAC input
 	std::vector<Botan::byte> macIn;
 
@@ -125,13 +125,17 @@ void RG_DDH::messageEncode(message& m, Botan::BigInt s, Ciphertext c){
 	m = encodeMessage(c, s);
 }
 
+Botan::BigInt RG_DDH::pwdToG(){
+	return Botan::power_mod(this->cs.getKp().pk.G.get_g(), this->pwd, this->cs.getKp().pk.G.get_p());
+}
+
 /**
  * calculate next message based on incoming message
  */
 mk RG_DDH::next(message m){
 	mk result;
 	if(m.length() == 0) { // at the first invocation the key is "null" --- here this can only happen once!
-		this->c1 = this->cs.encrypt(this->pwd, this->ids);
+		this->c1 = this->cs.encrypt(pwdToG(), this->ids);
 		result.m = CramerShoup::encodeCiphertext(this->c1);
 	} else if (m.length() > 0 && this->s1.size() == 0 && this->c1.e.size() == 0) { // Party gets first message --- FIXME: this won't work... how to identify first message?
 		this->csHash.keyGen(this->cs.getKp().pk);
@@ -139,12 +143,12 @@ mk RG_DDH::next(message m){
 		this->s1 = this->csHash.project(this->c1, this->ids);
 		X x;
 		x.c = this->c1;
-		x.m = this->pwd;
+		x.m = pwdToG();
 		this->sk1 = this->csHash.hash(x); // no label here necessary!
 
 		std::vector<Botan::byte> tmpCVec;
 		addCiphertext(tmpCVec, this->c1);
-		this->c2 = this->cs.encrypt(this->pwd, Botan::OctetString(&tmpCVec[0], tmpCVec.size()).as_string()+Botan::OctetString(Botan::BigInt::encode(this->s1)).as_string());
+		this->c2 = this->cs.encrypt(pwdToG(), Botan::OctetString(&tmpCVec[0], tmpCVec.size()).as_string()+Botan::OctetString(Botan::BigInt::encode(this->s1)).as_string());
 
 		result.m = encodeMessage(this->c2, this->s1);
 	} else if (m.length() > 0 && this->c1.e.size() != 0 && this->c2.e.size() == 0) {
@@ -156,7 +160,7 @@ mk RG_DDH::next(message m){
 		this->s2 = this->csHash.project(this->c2, Botan::OctetString(&tmpCVec[0], tmpCVec.size()).as_string()+Botan::OctetString(Botan::BigInt::encode(this->s1)).as_string());
 		X x;
 		x.c = this->c2;
-		x.m = this->pwd;
+		x.m = pwdToG();
 		this->sk2 = this->csHash.hash(x); // no label here necessary!
 
 		this->sk1 = Botan::power_mod(this->s1, this->cs.getR(), this->cs.getKp().pk.G.get_p());

@@ -6,6 +6,7 @@
  */
 
 #include "PrimeGroupAE.h"
+#include "NaturalNumbersAE.h"
 
 void testPrimeFactorization(PrimeGroupAE *pae, Botan::AutoSeeded_RNG &rng){
 	Botan::BigInt r = Botan::BigInt::random_integer(rng, 2, 1000000);
@@ -45,12 +46,15 @@ void testGroups(){
 	PrimeGroupAE pae5(&G);
 }
 
-void encDecTest(Botan::DL_Group *G, Botan::AutoSeeded_RNG *rng, PrimeGroupAE *pae){
-	Botan::BigInt r = Botan::BigInt::random_integer(*rng, 2, G->get_p());
-	Botan::BigInt in = Botan::power_mod(G->get_g(), r, G->get_p());
+void paEncDecTest(Botan::AutoSeeded_RNG *rng){
+	Botan::DL_Group G("modp/ietf/2048");
+	PrimeGroupAE pae(&G);
 
-	Botan::BigInt encoded = pae->encode(in);
-	Botan::BigInt decoded = pae->decode(encoded);
+	Botan::BigInt r = Botan::BigInt::random_integer(*rng, 2, G.get_p());
+	Botan::BigInt in = Botan::power_mod(G.get_g(), r, G.get_p());
+
+	Botan::BigInt encoded = pae.encode(in);
+	Botan::BigInt decoded = pae.decode(encoded);
 
 	if (in == decoded)
 		std::cout << "Prime Group AE Enc/Dec Test was successful :)\n";
@@ -58,18 +62,36 @@ void encDecTest(Botan::DL_Group *G, Botan::AutoSeeded_RNG *rng, PrimeGroupAE *pa
 		std::cout << "ERROR on Prime Group AE Enc/Dec Test  :(\n";
 }
 
+void nnEncDecTest(Botan::AutoSeeded_RNG *rng){
+	Botan::BigInt n(*rng,2048);
+	NaturalNumbersAE nae(n);
+
+	Botan::BigInt in = Botan::BigInt::random_integer(*rng, 0, n-1);
+	Botan::BigInt encoded = nae.encode(in);
+	Botan::BigInt decoded = nae.decode(encoded);
+	if (decoded == in)
+		std::cout << "Natural Numbers AE Enc/Dec Test was successful :)\n";
+	else
+		std::cout << "ERROR on Natural Numbers AE Enc/Dec Test  :(\n";
+}
+
+void encDecTest( Botan::AutoSeeded_RNG *rng){
+	paEncDecTest(rng);
+	nnEncDecTest(rng);
+}
+
+/*
+ * Note that we denote the INVERSE function with encode!
+ */
 int main(int argc, char **argv) {
 	// init Botan
 	Botan::LibraryInitializer init;
-
-	// testing variables
-	Botan::DL_Group G("modp/ietf/2048");
 	Botan::AutoSeeded_RNG rng;
-
-	PrimeGroupAE pae(&G);
 
 //	testPrimeFactorization(&pae, rng);
 //	testGroups();
 
-	encDecTest(&G, &rng, &pae);
+	encDecTest(&rng);
+
+
 }

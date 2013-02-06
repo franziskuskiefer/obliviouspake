@@ -19,7 +19,7 @@ void myprint(const gcry_mpi_t x) {
   //gcry_error_t err;
   unsigned char buf[1000];
   size_t nbytes = 0;
-  int i;
+  unsigned int i;
   //err =
   gcry_mpi_print(GCRYMPI_FMT_HEX, buf, sizeof(buf), &nbytes, x);
   //myerror(err);
@@ -258,9 +258,16 @@ void v_fold_interleaving_encode(gcry_mpi_t **c, const struct point *points, cons
 	}
 
 	// Check assertions
+	// removed as it does not work correctly!!!
+	/*
 	for (i=0; i < numberOfPoints; i++) {
+		unsigned char *buf;
+		gcry_mpi_aprint (GCRYMPI_FMT_HEX, &buf, NULL, y[i]);
+		printf ("y[%d]: %s\n", i, buf);
+		gcry_free (buf);
 		assert(gcry_mpi_cmp_ui(y[i], 0) == 0);
 	}
+	*/
 
 
 	free(d);

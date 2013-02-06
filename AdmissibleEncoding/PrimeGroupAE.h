@@ -8,6 +8,8 @@
 #ifndef PRIMEGROUPAE_H_
 #define PRIMEGROUPAE_H_
 
+#include "NaturalNumbersAE.h"
+
 // Botan stuff
 #include <botan/botan.h>
 #include <botan/dh.h>
@@ -32,6 +34,7 @@ private:
 	// member variables for internal state
 	Botan::DL_Group G;
 	z_p_star Z;
+	NaturalNumbersAE nae;
 
 	z_p_star generate_Z();
 
@@ -47,6 +50,10 @@ public:
 
 	const z_p_star& getZ() const {
 		return Z;
+	}
+
+	const NaturalNumbersAE& getNae() const {
+		return nae;
 	}
 };
 

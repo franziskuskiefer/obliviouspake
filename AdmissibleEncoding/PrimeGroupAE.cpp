@@ -12,21 +12,27 @@ PrimeGroupAE::PrimeGroupAE(Botan::DL_Group* G) {
 
 	// generate Z_P^*
 	this->Z = generate_Z();
+
+	// initialize Natural Number AE
+	this->nae = NaturalNumbersAE(this->Z.p);
 }
 
 // The admissible encoding function for one group element of G
 Botan::BigInt PrimeGroupAE::encode(Botan::BigInt m) {
-	Botan::AutoSeeded_RNG rng;
 	Botan::BigInt gpowq = Botan::power_mod(this->Z.g, G.get_q(), this->Z.p);
-	Botan::BigInt r = Botan::BigInt::random_integer(rng, 0, this->Z.a);
+	Botan::BigInt r = Botan::BigInt::random_integer(this->rng, 0, this->Z.a);
 	Botan::BigInt gpowqr = Botan::power_mod(gpowq, r, this->Z.p);
 	Botan::BigInt mpowainv = Botan::power_mod(m, Botan::inverse_mod(this->Z.a, G.get_q()), this->Z.p);
-	return (gpowqr*mpowainv) % this->Z.p;
+
+	Botan::BigInt result = (gpowqr*mpowainv) % this->Z.p ;
+	return this->nae.encode(result);
+
 }
 
 // admissible decoding for a group element of G
 Botan::BigInt PrimeGroupAE::decode(Botan::BigInt c) {
-	return Botan::power_mod(c, this->Z.a, G.get_p());
+	Botan::BigInt result = this->nae.decode(c);
+	return Botan::power_mod(result, this->Z.a, G.get_p());
 }
 
 // generate the z_p_star structure for a DL group G

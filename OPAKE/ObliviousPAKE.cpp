@@ -42,9 +42,7 @@ gcry_mpi_t** OPake::MessageToNuS(Botan::OctetString in, int numPwds, int nu){
 	return S;
 }
 
-Botan::BigInt OPake::ihmeDecode(message m, Botan::DL_Group G, int c, Botan::BigInt pwd){
-	gcry_mpi_t p;
-	Util::BigIntToMpi(&p, G.get_p());
+Botan::BigInt OPake::ihmeDecode(message m, Botan::DL_Group G, int c, Botan::BigInt pwd, gcry_mpi_t p){
 	// get message from m to S
 	gcry_mpi_t *S = MessageToS(m, c);
 	// IHME decode
@@ -72,7 +70,7 @@ Botan::OctetString OPake::nuIhmeDecode(message m, Botan::DL_Group G, int c, int 
 void OPake::addElement(struct point *P, int *pos, Botan::BigInt pwd, Botan::BigInt m){
 	// convert BigInts to MPIs
 	gcry_mpi_t pwdMpi;
-	Util::BigIntToMpi(&pwdMpi, pwd);
+	Util::BigIntToMpi(&pwdMpi, pwd); // FIXME: do we need an admissible encoding here too?!
 	gcry_mpi_t mMpi;
 	Util::BigIntToMpi(&mMpi, m);
 

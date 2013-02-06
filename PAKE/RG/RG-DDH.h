@@ -28,6 +28,7 @@ private:
 	Botan::BigInt s1, s2, sk1, sk2;
 
 	void computeMacandKey(Botan::OctetString&, Botan::OctetString&);
+	Botan::BigInt pwdToG();
 
 public:
 	RG_DDH(Botan::DL_Group*, std::string, PublicKey* = 0);
