@@ -53,9 +53,7 @@ Botan::BigInt OPake::ihmeDecode(message m, Botan::DL_Group G, int c, Botan::BigI
 	return Util::MpiToBigInt(encoded_public_A_MPI);
 }
 
-Botan::OctetString OPake::nuIhmeDecode(message m, Botan::DL_Group G, int c, int nu, Botan::BigInt pwd){
-	gcry_mpi_t p;
-	Util::BigIntToMpi(&p, G.get_p());
+Botan::OctetString OPake::nuIhmeDecode(message m, Botan::DL_Group G, int c, int nu, Botan::BigInt pwd, gcry_mpi_t p){
 	// get message from m to S
 	gcry_mpi_t **S = MessageToNuS(m, c, nu);
 	// IHME decode
@@ -144,16 +142,15 @@ Botan::SecureVector<Botan::byte> OPake::PRF(Botan::OctetString k, Botan::SecureV
 
 mk OPake::finalServerMessage(mk min){
 	mk result;
-	Botan::SecureVector<Botan::byte> confVal;
 	Botan::InitializationVector ivKey, ivConf;
-	Botan::OctetString finalK;
+	Botan::OctetString finalK, confVal;
 	keyGen(min.k, &finalK, &ivKey, this->sid);
-	confGen(min.k, &min.m, &ivConf, this->sid);
+	confGen(min.k, &confVal, &ivConf, this->sid);
 	result.k = finalK;
 
 	// add IVs to message
 	std::vector<Botan::byte> out;
-	Util::addOctetStringToVector(min.m, &out, true);
+	Util::addOctetStringToVector(confVal, &out, true);
 	Util::addOctetStringToVector(ivKey, &out, true);
 	Util::addOctetStringToVector(ivConf, &out, true);
 	result.m = Botan::OctetString(reinterpret_cast<const Botan::byte*>(&out[0]), out.size());
@@ -171,7 +168,7 @@ void OPake::decodeFinalMessage(message m, Botan::OctetString &ivKey, Botan::Octe
 
 void OPake::splitFinalCombinedMessage(Botan::OctetString m, Botan::OctetString &min, Botan::OctetString &conf){
 	Botan::u32bit length = Botan::BigInt::decode(m.begin(), 8, Botan::BigInt::Binary).to_u32bit()+8;
-	length += 32; // FIXME: have to make this length variable!!!
+	length += 16; // FIXME: have to make this length variable!!!
 	Util::OctetStringSplit(m, min, conf, length);
 }
 

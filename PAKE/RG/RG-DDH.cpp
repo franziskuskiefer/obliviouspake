@@ -76,13 +76,14 @@ void addCiphertext(std::vector<Botan::byte> &vec, Ciphertext &c){
 }
 
 void RG_DDH::computeMacandKey(Botan::OctetString &t, Botan::OctetString &key){
-	std::cout << "----------------------- computeMacandKey -----------------------\n";
+//	std::cout << "----------------------- computeMacandKey -----------------------\n";
 	// shorten key first // XXX: security?
 	Botan::Pipe hashPipe(new Botan::Hash_Filter("SHA-256"));
 	hashPipe.process_msg(Botan::BigInt::encode(this->sk1));
 	hashPipe.process_msg(Botan::BigInt::encode(this->sk2));
 
 	key = Botan::SymmetricKey(hashPipe.read_all(0));
+//	std::cout << "key(shortened): " << key.as_string() << std::endl;
 	Botan::Pipe macPipe(new Botan::MAC_Filter("CBC-MAC(AES-256)", key)); //HMAC(SHA-256)
 	// create MAC input
 	std::vector<Botan::byte> macIn;
@@ -105,13 +106,17 @@ void RG_DDH::computeMacandKey(Botan::OctetString &t, Botan::OctetString &key){
 
 	macPipe.process_msg(&(macIn[0]), macIn.size());
 	t = Botan::OctetString(macPipe.read_all(0));
+//	std::cout << "tag': " << t.as_string() << std::endl;
 
+	// xor with sk2
 	Botan::OctetString toXor(hashPipe.read_all(1));
 	t ^= toXor;
+//	std::cout << "tag: " << t.as_string() << std::endl;
 
 	// compute also final key
 	key ^= toXor;
-	std::cout << "----------------------- END - computeMacandKey -----------------------\n";
+//	std::cout << "key: " << key.as_string() << std::endl;
+//	std::cout << "----------------------- END - computeMacandKey -----------------------\n";
 }
 
 void RG_DDH::messageDecode(message m, Botan::BigInt &s, Ciphertext &c){
@@ -182,8 +187,6 @@ mk RG_DDH::next(message m){
 		// get t and s2
 		Botan::OctetString t, s;
 		decodeMessage(m, t, s);
-		std::cout << "t: " << t.as_string() << std::endl;
-		std::cout << "s: " << s.as_string() << std::endl;
 		this->s2 = Botan::BigInt(s.begin(), s.length());
 		this->sk2 = Botan::power_mod(this->s2, this->cs.getR(), this->cs.getKp().pk.G.get_p());
 
@@ -194,7 +197,7 @@ mk RG_DDH::next(message m){
 			result.k = key;
 			this->k = key;
 		} else {
-			std::cout << "Error! ----- MAC check failed!\n";
+//			std::cout << "Error! ----- MAC check failed!\n";
 			// error...something went wrong, so we have no key
 		}
 	}

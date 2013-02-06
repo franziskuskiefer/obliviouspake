@@ -38,7 +38,7 @@ protected:
 	gcry_mpi_t* MessageToS(Botan::OctetString, int);
 	gcry_mpi_t** MessageToNuS(Botan::OctetString, int, int);
 	Botan::BigInt ihmeDecode(message,Botan::DL_Group, int, Botan::BigInt, gcry_mpi_t p);
-	Botan::OctetString nuIhmeDecode(message, Botan::DL_Group, int, int, Botan::BigInt);
+	Botan::OctetString nuIhmeDecode(message, Botan::DL_Group, int, int, Botan::BigInt, gcry_mpi_t p);
 	gcry_mpi_t* createIHMEResultSet(int);
 	gcry_mpi_t** createNuIHMEResultSet(int, int);
 	Botan::OctetString encodeNuS(gcry_mpi_t **, int, int);
