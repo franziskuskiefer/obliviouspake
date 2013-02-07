@@ -23,6 +23,9 @@ private:
 	Botan::DL_Group G;
 	PublicKey* pk;
 
+	mk nextServer(message m);
+	mk nextClient(message m);
+
 public:
 	ORGpake(Botan::DL_Group*, std::string, PublicKey* = 0);
 	void init(std::vector<std::string>, ROLE, int);
