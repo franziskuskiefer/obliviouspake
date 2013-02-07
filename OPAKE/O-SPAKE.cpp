@@ -37,104 +37,115 @@ Botan::BigInt decodeMessage(message m){
 	return Botan::BigInt("0x"+m.as_string());
 }
 
-mk OSpake::next(message m) {
+mk OSpake::nextServer(message m){
 	mk result;
-	std::cout << "--------------------- " << (this->procs[0]->getR() ? "Client" : "Server") << "---------------------\n";
-	if (this->procs[0]->getR() == SERVER) {
-		Botan::OctetString messageIn;
-		if (m.length() != 0){
-			// get correct message first
-			PrimeGroupAE ae(&this->G);
+	Botan::OctetString messageIn;
+	if (m.length() != 0){
+		// get correct message first
+		PrimeGroupAE ae(&this->G);
+		gcry_mpi_t p;
+		Util::BigIntToMpi(&p, ae.getNae().getEll());
+		Botan::BigInt aeDecodedM = ihmeDecode(m, this->G, c, this->procs[0]->getPwd(), p);
+		Botan::BigInt message = ae.decode(aeDecodedM);
+		messageIn = Botan::OctetString(Botan::BigInt::encode(message));
+	} else {
+		messageIn = m;
+	}
+	result = this->procs[0]->next(messageIn);
+
+	this->sid.insert(this->sid.end(), m.begin(), m.begin()+m.length());
+	this->sid.insert(this->sid.end(), result.m.begin(), result.m.begin()+result.m.length());
+
+	// calculate confirmation message and real final key
+	if (result.m.length() == 0){
+		std::cout << "creating confirmation message and final key...\n";
+		result = finalServerMessage(result);
+	}
+	return result;
+}
+
+mk OSpake::nextClient(message m){
+	mk result;
+
+	// Need this all over the place!
+	PrimeGroupAE ae(&this->G);
+
+	if (!this->finished){ // normal PAKE computations here
+		// clear key vector
+		this->keys.clear();
+		// add incoming message to sid
+		this->sid.insert(this->sid.end(), m.begin(), m.begin()+m.length());
+
+		struct point P[this->c];
+		for (int k = 0; k < this->c; k++)
+			initpoint(&P[k]);
+		int pos = 0;
+		for (int i = 0; i < this->c; ++i) { //FIXME: incoming m could be empty!
+			mk piResult = this->procs[i]->next(m);
+			if (piResult.m.length() == 0) {// there is no message anymore.... stop the bloody protocol
+				// do not handle empty messages
+				// FIXME: do we have to use random messages here?
+				this->finished = true;
+			} else { // only if there is really a message from Pi.next, we have to process it
+				// encode the client's (Alice) messages (admissible encoding)
+				Botan::BigInt out = Botan::BigInt("0x"+piResult.m.as_string()); // FIXME: get BigInt direct from Pi!
+
+				// add admissible encoding
+				Botan::BigInt aeEncoded = ae.encode(out);
+
+				// add out to IHME structure P
+				addElement(P, &pos, this->procs[i]->getPwd(), aeEncoded);
+			}
+
+			// store also the key in the vector // FIXME: has to be done different!
+			this->keys.insert(this->keys.end(), piResult.k);
+		}
+		result.k = this->keys[1]; // FIXME: have to return all keys....
+
+		// we don't have a message in the last round (only confirmation and key calculation there)
+		if (!this->finished){
+			// compute IHME structure S from P with c passwords and modulus p
 			gcry_mpi_t p;
 			Util::BigIntToMpi(&p, ae.getNae().getEll());
-			Botan::BigInt aeDecodedM = ihmeDecode(m, this->G, c, this->procs[0]->getPwd(), p);
-			Botan::BigInt message = ae.decode(aeDecodedM);//decodeMessage(m)
-			messageIn = Botan::OctetString(Botan::BigInt::encode(message));
-		} else {
-			messageIn = m;
+			gcry_mpi_t *S;
+			S = createIHMEResultSet(this->c);
+			interpolation_alg2(S, P, this->c, p);
+
+			// have to encode the S as OctetString
+			Botan::OctetString out = encodeS(S, this->c);
+			result.m = out;
+			this->sid.insert(this->sid.end(), out.begin(),out.begin()+out.length());
+
+			// FIXME: when can we set finished?
+			this->finished = true;
 		}
-		result = this->procs[0]->next(messageIn);
+	} else { // Here Pi finished and the incoming message is the confirmation message
+		Botan::OctetString ivKey, ivConf;
+		Botan::SecureVector<Botan::byte> confVal;
+		decodeFinalMessage(m, ivKey, ivConf, confVal);
 
-		this->sid.insert(this->sid.end(), m.begin(), m.begin()+m.length());
-		this->sid.insert(this->sid.end(), result.m.begin(), result.m.begin()+result.m.length());
+		// compute keys for Client
+		for (int var = 0; var < this->c; ++var) {
+			// generate confirmation message for every computed key
+			Botan::OctetString conf;
+			confGen(this->keys[var], &conf, &ivConf, this->sid);
 
-		// calculate confirmation message and real final key
-		if (result.m.length() == 0){
-			std::cout << "creating confirmation message and final key...\n";
-			result = finalServerMessage(result);
-		}
-	} else { // this has to be a client....
-		// Need this all over the place!
-		PrimeGroupAE ae(&this->G);
-
-		if (!this->finished){ // normal PAKE computations here
-			// clear key vector
-			this->keys.clear();
-			// add incoming message to sid
-			this->sid.insert(this->sid.end(), m.begin(), m.begin()+m.length());
-
-			struct point P[this->c];
-			for (int k = 0; k < this->c; k++)
-				initpoint(&P[k]);
-			int pos = 0;
-			for (int i = 0; i < this->c; ++i) { //FIXME: incoming m could be empty!
-				mk piResult = this->procs[i]->next(m);
-				if (piResult.m.length() == 0) {// there is no message anymore.... stop the bloody protocol
-					// do not handle empty messages
-					// FIXME: do we have to use random messages here?
-					this->finished = true;
-				} else { // only if there is really a message from Pi.next, we have to process it
-					// encode the client's (Alice) messages (admissible encoding)
-					Botan::BigInt out = Botan::BigInt("0x"+piResult.m.as_string()); // FIXME: get BigInt direct from Pi!
-
-					// add admissible encoding
-					Botan::BigInt aeEncoded = ae.encode(out);
-
-					// add out to IHME structure P
-					addElement(P, &pos, this->procs[i]->getPwd(), aeEncoded);
-				}
-
-				// store also the key in the vector // FIXME: has to be done different!
-				this->keys.insert(this->keys.end(), piResult.k);
-			}
-			result.k = this->keys[1]; // FIXME: have to return all keys....
-
-			// we don't have a message in the last round (only confirmation and key calculation there)
-			if (!this->finished){
-				// compute IHME structure S from P with c passwords and modulus p
-				gcry_mpi_t p;
-				Util::BigIntToMpi(&p, ae.getNae().getEll());
-				gcry_mpi_t *S;
-				S = createIHMEResultSet(this->c);
-				interpolation_alg2(S, P, this->c, p);
-
-				// have to encode the S as OctetString
-				Botan::OctetString out = encodeS(S, this->c);
-				result.m = out;
-				this->sid.insert(this->sid.end(), out.begin(),out.begin()+out.length());
-
-				// FIXME: when can we set finished?
-				this->finished = true;
-			}
-		} else { // Here Pi finished and the incoming message is the confirmation message
-			Botan::OctetString ivKey, ivConf;
-			Botan::SecureVector<Botan::byte> confVal;
-			decodeFinalMessage(m, ivKey, ivConf, confVal);
-
-			// compute keys for Client
-			for (int var = 0; var < this->c; ++var) {
-				// generate confirmation message for every computed key
-				Botan::OctetString conf;
-				confGen(this->keys[var], &conf, &ivConf, this->sid);
-
-				if (conf == confVal){
-					std::cout << "got the key :)\n";
-					keyGen(this->keys[var], &result.k, &ivKey, this->sid);
-					break; // XXX: we can stop when we found the correct key; Problem: Side-Channel Attacks
-				}
+			if (conf == confVal){
+				std::cout << "got the key :)\n";
+				keyGen(this->keys[var], &result.k, &ivKey, this->sid);
+				break; // XXX: we can stop when we found the correct key; Problem: Side-Channel Attacks
 			}
 		}
 	}
 	return result;
+}
+
+mk OSpake::next(message m) {
+	std::cout << "--------------------- " << (this->procs[0]->getR() ? "Client" : "Server") << "---------------------\n";
+	if (this->procs[0]->getR() == SERVER) {
+		return nextServer(m);
+	} else {
+		return nextClient(m);
+	}
 }
 

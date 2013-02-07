@@ -24,6 +24,9 @@ private:
 	Botan::BigInt M, N;
 	std::string crs;
 
+	mk nextServer(message m);
+	mk nextClient(message m);
+
 public:
 	OSpake(Botan::DL_Group, Botan::BigInt, Botan::BigInt, std::string);
 	void init(std::vector<std::string>, ROLE, int);
