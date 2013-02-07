@@ -16,17 +16,13 @@ using namespace Botan;
 /**
  * RG-DDH PAKE constructor, for general setup purposes (DL Group)
  */
-RG_DDH::RG_DDH(Botan::DL_Group* G, std::string id, PublicKey *pk)
-	{
+RG_DDH::RG_DDH(Botan::DL_Group G, std::string id, PublicKey pk) {
 	// Setup of Cramer-Shoup encryption scheme and according smooth-projective Hash function
-	if (pk == 0)
-		this->cs.keyGen(*G);
-	else {
-		KeyPair kp;
-		kp.pk = *pk;
-		this->cs.setKp(kp);
-	}
-	this->csHash.keyGen(*pk);
+	KeyPair kp;
+	kp.pk = pk;
+	this->cs.setKp(kp);
+
+	this->csHash.keyGen(pk);
 	this->ids = id;
 
 	// empty instantiation of other variables // FIXME: really necessary?
@@ -76,47 +72,35 @@ void addCiphertext(std::vector<Botan::byte> &vec, Ciphertext &c){
 }
 
 void RG_DDH::computeMacandKey(Botan::OctetString &t, Botan::OctetString &key){
-//	std::cout << "----------------------- computeMacandKey -----------------------\n";
 	// shorten key first // XXX: security?
 	Botan::Pipe hashPipe(new Botan::Hash_Filter("SHA-256"));
 	hashPipe.process_msg(Botan::BigInt::encode(this->sk1));
 	hashPipe.process_msg(Botan::BigInt::encode(this->sk2));
 
 	key = Botan::SymmetricKey(hashPipe.read_all(0));
-//	std::cout << "key(shortened): " << key.as_string() << std::endl;
 	Botan::Pipe macPipe(new Botan::MAC_Filter("CBC-MAC(AES-256)", key)); //HMAC(SHA-256)
 	// create MAC input
 	std::vector<Botan::byte> macIn;
 
 	addCiphertext(macIn, this->c1);
-//	std::cout << "c1:\n" << this->c1.as_string() << std::endl;
 
 	Botan::SecureVector<Botan::byte> tmp = Botan::BigInt::encode(this->s1);
 	macIn.insert(macIn.end(), tmp.begin(), tmp.begin()+tmp.size());
-//	std::cout << "s1:\n" << Botan::OctetString(tmp).as_string() << std::endl;
 
 	addCiphertext(macIn, this->c2);
-//	std::cout << "c2:\n" << this->c2.as_string() << std::endl;
 
 	tmp = Botan::BigInt::encode(this->s2);
 	macIn.insert(macIn.end(), tmp.begin(), tmp.begin()+tmp.size());
-//	std::cout << "s2:\n" << Botan::OctetString(tmp).as_string() << std::endl;
-
-//	std::cout << "macIn: " << Botan::OctetString(&(macIn[0]), macIn.size()).as_string() << std::endl;
 
 	macPipe.process_msg(&(macIn[0]), macIn.size());
 	t = Botan::OctetString(macPipe.read_all(0));
-//	std::cout << "tag': " << t.as_string() << std::endl;
 
 	// xor with sk2
 	Botan::OctetString toXor(hashPipe.read_all(1));
 	t ^= toXor;
-//	std::cout << "tag: " << t.as_string() << std::endl;
 
 	// compute also final key
 	key ^= toXor;
-//	std::cout << "key: " << key.as_string() << std::endl;
-//	std::cout << "----------------------- END - computeMacandKey -----------------------\n";
 }
 
 void RG_DDH::messageDecode(message m, Botan::BigInt &s, Ciphertext &c){
@@ -142,7 +126,7 @@ mk RG_DDH::next(message m){
 	if(m.length() == 0) { // at the first invocation the key is "null" --- here this can only happen once!
 		this->c1 = this->cs.encrypt(pwdToG(), this->ids);
 		result.m = CramerShoup::encodeCiphertext(this->c1);
-	} else if (m.length() > 0 && this->s1.size() == 0 && this->c1.e.size() == 0) { // Party gets first message --- FIXME: this won't work... how to identify first message?
+	} else if (m.length() > 0 && this->s1 == 0 && this->c1.e == 0) { // Party gets first message --- FIXME: this won't work... how to identify first message?
 		this->csHash.keyGen(this->cs.getKp().pk);
 		this->c1 = CramerShoup::decodeCiphertext(m);
 		this->s1 = this->csHash.project(this->c1, this->ids);
@@ -156,7 +140,7 @@ mk RG_DDH::next(message m){
 		this->c2 = this->cs.encrypt(pwdToG(), Botan::OctetString(&tmpCVec[0], tmpCVec.size()).as_string()+Botan::OctetString(Botan::BigInt::encode(this->s1)).as_string());
 
 		result.m = encodeMessage(this->c2, this->s1);
-	} else if (m.length() > 0 && this->c1.e.size() != 0 && this->c2.e.size() == 0) {
+	} else if (m.length() > 0 && this->c1.e != 0 && this->c2.e == 0) {
 		this->csHash.keyGen(this->cs.getKp().pk);
 		messageDecode(m, this->s1, this->c2);
 

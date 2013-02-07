@@ -16,8 +16,6 @@
 class RG_DDH : public Pake {
 
 private:
-	Botan::AutoSeeded_RNG rng;
-
 	// member variables for internal state
 	CramerShoup cs;
 	CramerShoupSPHash csHash;
@@ -31,7 +29,7 @@ private:
 	Botan::BigInt pwdToG();
 
 public:
-	RG_DDH(Botan::DL_Group*, std::string, PublicKey* = 0);
+	RG_DDH(Botan::DL_Group, std::string, PublicKey);
 
 	void init(std::string, ROLE);
 	mk next(message);
@@ -42,6 +40,10 @@ public:
 
 	static void messageDecode(message, Botan::BigInt&, Ciphertext&);
 	static void messageEncode(message&, Botan::BigInt, Ciphertext);
+
+	RG_DDH* clone() const {
+		return new RG_DDH(*this);
+	}
 };
 
 #endif /* SPAKE_H_ */

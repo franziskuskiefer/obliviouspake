@@ -20,24 +20,26 @@ CramerShoup::CramerShoup(PublicKey pk) {
 }
 
 void CramerShoup::keyGen(Botan::DL_Group G) {
+	Botan::AutoSeeded_RNG rng;
+
 	// tmp variables ...
 	Botan::BigInt g = G.get_g();
 	Botan::BigInt p = G.get_p();
 	Botan::BigInt q = G.get_q();
 
 	// make second generator
-	Botan::BigInt alpha = Botan::BigInt::random_integer(this->rng, 0, q);
+	Botan::BigInt alpha = Botan::BigInt::random_integer(rng, 0, q);
 	do {
 		this->kp.pk.g2 = Botan::power_mod(g, alpha, p);
 	} while (this->kp.pk.g2 == 1);
 	this->kp.pk.G = G;
 
 	// generate secret random stuff
-	this->kp.sk.x1 = Botan::BigInt::random_integer(this->rng, 0, q);
-	this->kp.sk.x2 = Botan::BigInt::random_integer(this->rng, 0, q);
-	this->kp.sk.y1 = Botan::BigInt::random_integer(this->rng, 0, q);
-	this->kp.sk.y2 = Botan::BigInt::random_integer(this->rng, 0, q);
-	this->kp.sk.z = Botan::BigInt::random_integer(this->rng, 0, q);
+	this->kp.sk.x1 = Botan::BigInt::random_integer(rng, 0, q);
+	this->kp.sk.x2 = Botan::BigInt::random_integer(rng, 0, q);
+	this->kp.sk.y1 = Botan::BigInt::random_integer(rng, 0, q);
+	this->kp.sk.y2 = Botan::BigInt::random_integer(rng, 0, q);
+	this->kp.sk.z = Botan::BigInt::random_integer(rng, 0, q);
 
 	// compute the public stuff
 	this->kp.pk.c = (Botan::power_mod(g, this->kp.sk.x1, p)*Botan::power_mod(this->kp.pk.g2, this->kp.sk.x2, p)) % p;
@@ -57,9 +59,10 @@ Botan::BigInt CramerShoup::hashIt(Botan::BigInt u1, Botan::BigInt u2, Botan::Big
 
 Ciphertext CramerShoup::encrypt(Botan::BigInt m, std::string l) {
 	Ciphertext c;
+	Botan::AutoSeeded_RNG rng;
 
 	// get the randomness
-	this->r = Botan::BigInt::random_integer(this->rng, 0, this->kp.pk.G.get_q());
+	this->r = Botan::BigInt::random_integer(rng, 0, this->kp.pk.G.get_q());
 
 	// do the calculations
 	c.u1 = Botan::power_mod(this->kp.pk.G.get_g(), this->r, this->kp.pk.G.get_p());

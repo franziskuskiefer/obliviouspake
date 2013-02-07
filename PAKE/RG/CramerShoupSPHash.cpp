@@ -15,11 +15,13 @@ CramerShoupSPHash::CramerShoupSPHash(Key k, PublicKey pk) {
 }
 
 void CramerShoupSPHash::keyGen(PublicKey pk) {
+	Botan::AutoSeeded_RNG rng;
+
 	this->pk = pk;
-	this->k.a = Botan::BigInt::random_integer(this->rng, 0, pk.G.get_q());
-	this->k.b = Botan::BigInt::random_integer(this->rng, 0, pk.G.get_q());
-	this->k.c = Botan::BigInt::random_integer(this->rng, 0, pk.G.get_q());
-	this->k.d = Botan::BigInt::random_integer(this->rng, 0, pk.G.get_q());
+	this->k.a = Botan::BigInt::random_integer(rng, 0, pk.G.get_q());
+	this->k.b = Botan::BigInt::random_integer(rng, 0, pk.G.get_q());
+	this->k.c = Botan::BigInt::random_integer(rng, 0, pk.G.get_q());
+	this->k.d = Botan::BigInt::random_integer(rng, 0, pk.G.get_q());
 }
 
 Botan::BigInt CramerShoupSPHash::project(Ciphertext c, std::string l) {

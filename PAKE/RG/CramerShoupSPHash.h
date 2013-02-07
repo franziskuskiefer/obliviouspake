@@ -22,7 +22,6 @@ struct X {
 class CramerShoupSPHash {
 
 private:
-	Botan::AutoSeeded_RNG rng;
 	Key k;
 	PublicKey pk;
 

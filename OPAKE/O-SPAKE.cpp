@@ -18,20 +18,6 @@ OSpake::OSpake(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string 
 void OSpake::init(std::vector<std::string> pwds, ROLE role, int c) {
 	Spake *tmp = new Spake(this->G, this->M, this->N, this->crs);
 	init(pwds, role, c, tmp);
-//	this->c = c;
-//	if (role == CLIENT){
-//		for (int i = 0; i < c; ++i) {
-//			Spake *tmp = new Spake(this->G, this->M, this->N, this->crs);
-//			this->procs.push_back(boost::shared_ptr<Pake>(tmp));
-//		}
-//		for(int i = 0; i < c ; ++i){
-//			this->procs[i]->init(pwds[i], role);
-//		}
-//	} else { // there is only one instance for the server with one password
-//		Spake *tmp = new Spake(this->G, this->M, this->N, this->crs);
-//		this->procs.push_back(boost::shared_ptr<Pake>(tmp));
-//		this->procs[0]->init(pwds[0], role);
-//	}
 }
 
 // simple decoding (have only one BigInt there)

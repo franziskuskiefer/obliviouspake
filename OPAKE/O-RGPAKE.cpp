@@ -7,28 +7,15 @@
 
 #include "O-RGPAKE.h"
 
-ORGpake::ORGpake(Botan::DL_Group* G, std::string crs, PublicKey* pk) {
+ORGpake::ORGpake(Botan::DL_Group G, std::string crs, PublicKey pk) {
 	finished = false;
 	this->pk = pk;
-	this->G = *G;
+	this->G = G;
 }
 
-// XXX: could be generalized...
 void ORGpake::init(std::vector<std::string> pwds, ROLE role, int c) {
-	this->c = c;
-	if (role == CLIENT){
-		for (int i = 0; i < c; ++i) {
-			RG_DDH *tmp = new RG_DDH(&(this->G), this->crs, this->pk);
-			this->procs.push_back(boost::shared_ptr<Pake>(tmp));
-		}
-		for(int i = 0; i < c ; ++i){
-			this->procs[i]->init(pwds[i], role);
-		}
-	} else { // there is only one instance for the server with one password
-		RG_DDH *tmp = new RG_DDH(&(this->G), this->crs, this->pk);
-		this->procs.push_back(boost::shared_ptr<Pake>(tmp));
-		this->procs[0]->init(pwds[0], role);
-	}
+	RG_DDH *tmp = new RG_DDH(this->G, this->crs, this->pk);
+	init(pwds, role, c, tmp);
 }
 
 mk ORGpake::nextServer(message m){
@@ -100,7 +87,7 @@ mk ORGpake::nextClient(message m){
 			if (piResult.m.length() == 0) {// there is no message anymore.... stop the bloody protocol
 				// do not handle empty messages
 				// FIXME: do we have to use random messages here, or can we just stop the compiler and output the key?
-				std::cout << "----------------- ERROR (one PAKE instance returned an empty message) -----------------";
+				std::cout << "----------------- ERROR (one PAKE instance returned an empty message) -----------------\n";
 			} else { // only if there is really a message from Pi.next, we have to process it
 				// encode the client's messages (admissible encoding)
 				// TODO: generalize this!

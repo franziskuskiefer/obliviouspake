@@ -21,13 +21,15 @@ class ORGpake : public OPake {
 private:
 
 	Botan::DL_Group G;
-	PublicKey* pk;
+	PublicKey pk;
 
+	using OPake::nextServer;
+	using OPake::init;
 	mk nextServer(message m);
 	mk nextClient(message m);
 
 public:
-	ORGpake(Botan::DL_Group*, std::string, PublicKey* = 0);
+	ORGpake(Botan::DL_Group, std::string, PublicKey);
 	void init(std::vector<std::string>, ROLE, int);
 	mk next(message);
 };

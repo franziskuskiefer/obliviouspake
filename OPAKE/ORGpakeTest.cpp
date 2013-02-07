@@ -15,7 +15,7 @@ void test1(Botan::DL_Group G, std::string pwd, std::vector<std::string> pwds, Cr
 
 	// create RGpake Server & Client instances
 	PublicKey pk = cs->getKp().pk;
-	ORGpake server(&G, ids, &pk), client(&G, ids, &pk);
+	ORGpake server(G, ids, pk), client(G, ids, pk);
 	server.init(serverPwd, SERVER, c);
 	client.init(pwds, CLIENT, c);
 

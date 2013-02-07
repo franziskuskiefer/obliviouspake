@@ -50,7 +50,6 @@ public:
 class CramerShoup {
 
 private:
-	Botan::AutoSeeded_RNG rng;
 	KeyPair kp;
 	Botan::BigInt r;
 
