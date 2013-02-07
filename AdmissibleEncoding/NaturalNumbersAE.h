@@ -17,7 +17,9 @@
 #include <stdio.h>
 #include <iostream>
 
-class NaturalNumbersAE {
+#include "AdmissibleEncoding.h"
+
+class NaturalNumbersAE : public AdmissibleEncoding {
 
 private:
 	// member variables for internal state

@@ -61,9 +61,10 @@ void Spake::init(std::string pwd, ROLE r){
  */
 mk Spake::next(message m){
 	mk result;
+	Botan::AutoSeeded_RNG rng;
 	if(k.length() == 0) { // at the first invocation the key is "null"
 		if (this->privateKey == NULL && m.length() == 0) { // we have to calculate private and public DH key first && m has to be 0, otherwise we have to do more things at once
-			Botan::DH_PrivateKey *tmp = new Botan::DH_PrivateKey(this->rng, this->G);
+			Botan::DH_PrivateKey *tmp = new Botan::DH_PrivateKey(rng, this->G);
 			this->privateKey = boost::shared_ptr<Botan::DH_PrivateKey>(tmp);
 			if (r == CLIENT){ // compute client message (with M)
 				this->publicKey = createMessage(*(this->privateKey), this->pwd, this->G, this->M);
@@ -90,7 +91,7 @@ mk Spake::next(message m){
 			Botan::BigInt Y = Botan::BigInt("0x"+m.as_string());
 
 			// Generate private/public DH Key
-			Botan::DH_PrivateKey *tmp = new Botan::DH_PrivateKey(this->rng, this->G);
+			Botan::DH_PrivateKey *tmp = new Botan::DH_PrivateKey(rng, this->G);
 			this->privateKey = boost::shared_ptr<Botan::DH_PrivateKey>(tmp);
 			if (r == CLIENT){ // compute client message (with M)
 				this->publicKey = createMessage(*(this->privateKey), this->pwd, this->G, this->M);

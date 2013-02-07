@@ -30,6 +30,11 @@ struct mk {
 	message m;
 };
 
+struct clonable {
+    virtual ~clonable() {}
+    virtual clonable* clone() const = 0;
+};
+
 class Util {
 
 private:

@@ -15,7 +15,7 @@
 /**
  * The overall PAKE class
  */
-class Pake {
+class Pake : public clonable {
 
 protected:
 
@@ -35,6 +35,8 @@ public:
 	const Botan::BigInt& getPwd() const {
 		return pwd;
 	}
+
+	virtual Pake* clone() const = 0;
 };
 
 #endif /* PAKE_H_ */

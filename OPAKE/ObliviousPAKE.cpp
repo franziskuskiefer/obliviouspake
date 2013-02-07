@@ -42,7 +42,7 @@ gcry_mpi_t** OPake::MessageToNuS(Botan::OctetString in, int numPwds, int nu){
 	return S;
 }
 
-Botan::BigInt OPake::ihmeDecode(message m, Botan::DL_Group G, int c, Botan::BigInt pwd, gcry_mpi_t p){
+Botan::BigInt OPake::ihmeDecode(message m, int c, Botan::BigInt pwd, gcry_mpi_t p){
 	// get message from m to S
 	gcry_mpi_t *S = MessageToS(m, c);
 	// IHME decode
@@ -194,4 +194,47 @@ gcry_mpi_t** OPake::createNuIHMEResultSet(int numPwds, int nu){
 		}
 	}
 	return S;
+}
+
+void OPake::init(std::vector<std::string> pwds, ROLE role, int c, Pake *p){
+	this->c = c;
+	if (role == CLIENT){
+		for (int i = 0; i < c; ++i) {
+			Pake *tmp = p->clone();
+			this->procs.push_back(boost::shared_ptr<Pake>(tmp));
+		}
+		for(int i = 0; i < c ; ++i){
+			this->procs[i]->init(pwds[i], role);
+		}
+	} else { // there is only one instance for the server with one password
+		Pake *tmp = p->clone();
+		this->procs.push_back(boost::shared_ptr<Pake>(tmp));
+		this->procs[0]->init(pwds[0], role);
+	}
+}
+
+mk OPake::nextServer(message m, AdmissibleEncoding *ae, Botan::BigInt P){
+	mk result;
+	Botan::OctetString messageIn;
+	if (m.length() != 0){
+		// get correct message first
+		gcry_mpi_t p;
+		Util::BigIntToMpi(&p, P);
+		Botan::BigInt aeDecodedM = ihmeDecode(m, c, this->procs[0]->getPwd(), p);
+		Botan::BigInt message = ae->decode(aeDecodedM);
+		messageIn = Botan::OctetString(Botan::BigInt::encode(message));
+	} else {
+		messageIn = m;
+	}
+	result = this->procs[0]->next(messageIn);
+
+	this->sid.insert(this->sid.end(), m.begin(), m.begin()+m.length());
+	this->sid.insert(this->sid.end(), result.m.begin(), result.m.begin()+result.m.length());
+
+	// calculate confirmation message and real final key
+	if (result.m.length() == 0){
+		std::cout << "creating confirmation message and final key...\n";
+		result = finalServerMessage(result);
+	}
+	return result;
 }

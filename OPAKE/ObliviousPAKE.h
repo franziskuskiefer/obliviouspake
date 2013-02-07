@@ -12,6 +12,8 @@
 #include "../PAKE/pake.h"
 // and uses IHME for message encoding
 #include "../IHME/IHME.h"
+// Admissible Encodings
+#include "../AdmissibleEncoding/AdmissibleEncoding.h"
 
 #include <boost/shared_ptr.hpp>
 
@@ -37,11 +39,14 @@ protected:
 	void splitFinalCombinedMessage(Botan::OctetString m, Botan::OctetString &min, Botan::OctetString &conf);
 	gcry_mpi_t* MessageToS(Botan::OctetString, int);
 	gcry_mpi_t** MessageToNuS(Botan::OctetString, int, int);
-	Botan::BigInt ihmeDecode(message,Botan::DL_Group, int, Botan::BigInt, gcry_mpi_t p);
+	Botan::BigInt ihmeDecode(message, int, Botan::BigInt, gcry_mpi_t p);
 	Botan::OctetString nuIhmeDecode(message, Botan::DL_Group, int, int, Botan::BigInt, gcry_mpi_t p);
 	gcry_mpi_t* createIHMEResultSet(int);
 	gcry_mpi_t** createNuIHMEResultSet(int, int);
 	Botan::OctetString encodeNuS(gcry_mpi_t **, int, int);
+
+	mk nextServer(message m, AdmissibleEncoding *ae, Botan::BigInt P);
+	void init(std::vector<std::string> pwds, ROLE role, int c, Pake *p);
 
 public:
 	virtual void init(std::vector<std::string>, ROLE, int) = 0;

@@ -14,8 +14,6 @@
 class Spake : public Pake {
 
 private:
-	Botan::AutoSeeded_RNG rng;
-
 	// member variables for internal state
 	Botan::DL_Group G;
 	Botan::BigInt M, N, publicKey;
@@ -30,6 +28,10 @@ public:
 
 	~Spake(){
 		// nothing here yet...
+	}
+
+	Spake* clone() const {
+		return new Spake(*this);
 	}
 };
 

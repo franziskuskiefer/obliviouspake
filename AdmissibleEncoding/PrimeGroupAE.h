@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <iostream>
 
+#include "AdmissibleEncoding.h"
+
 // Structure to store necessary parameters of Z*_p
 struct z_p_star {
 	Botan::BigInt p;
@@ -26,7 +28,7 @@ struct z_p_star {
 	Botan::BigInt g;
 };
 
-class PrimeGroupAE {
+class PrimeGroupAE :public AdmissibleEncoding {
 
 private:
 	Botan::AutoSeeded_RNG rng;

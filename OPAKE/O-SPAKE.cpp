@@ -16,20 +16,22 @@ OSpake::OSpake(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string 
 }
 
 void OSpake::init(std::vector<std::string> pwds, ROLE role, int c) {
-	this->c = c;
-	if (role == CLIENT){
-		for (int i = 0; i < c; ++i) {
-			Spake *tmp = new Spake(this->G, this->M, this->N, this->crs);
-			this->procs.push_back(boost::shared_ptr<Pake>(tmp));
-		}
-		for(int i = 0; i < c ; ++i){
-			this->procs[i]->init(pwds[i], role);
-		}
-	} else { // there is only one instance for the server with one password
-		Spake *tmp = new Spake(this->G, this->M, this->N, this->crs);
-		this->procs.push_back(boost::shared_ptr<Pake>(tmp));
-		this->procs[0]->init(pwds[0], role);
-	}
+	Spake *tmp = new Spake(this->G, this->M, this->N, this->crs);
+	init(pwds, role, c, tmp);
+//	this->c = c;
+//	if (role == CLIENT){
+//		for (int i = 0; i < c; ++i) {
+//			Spake *tmp = new Spake(this->G, this->M, this->N, this->crs);
+//			this->procs.push_back(boost::shared_ptr<Pake>(tmp));
+//		}
+//		for(int i = 0; i < c ; ++i){
+//			this->procs[i]->init(pwds[i], role);
+//		}
+//	} else { // there is only one instance for the server with one password
+//		Spake *tmp = new Spake(this->G, this->M, this->N, this->crs);
+//		this->procs.push_back(boost::shared_ptr<Pake>(tmp));
+//		this->procs[0]->init(pwds[0], role);
+//	}
 }
 
 // simple decoding (have only one BigInt there)
@@ -38,30 +40,8 @@ Botan::BigInt decodeMessage(message m){
 }
 
 mk OSpake::nextServer(message m){
-	mk result;
-	Botan::OctetString messageIn;
-	if (m.length() != 0){
-		// get correct message first
-		PrimeGroupAE ae(&this->G);
-		gcry_mpi_t p;
-		Util::BigIntToMpi(&p, ae.getNae().getEll());
-		Botan::BigInt aeDecodedM = ihmeDecode(m, this->G, c, this->procs[0]->getPwd(), p);
-		Botan::BigInt message = ae.decode(aeDecodedM);
-		messageIn = Botan::OctetString(Botan::BigInt::encode(message));
-	} else {
-		messageIn = m;
-	}
-	result = this->procs[0]->next(messageIn);
-
-	this->sid.insert(this->sid.end(), m.begin(), m.begin()+m.length());
-	this->sid.insert(this->sid.end(), result.m.begin(), result.m.begin()+result.m.length());
-
-	// calculate confirmation message and real final key
-	if (result.m.length() == 0){
-		std::cout << "creating confirmation message and final key...\n";
-		result = finalServerMessage(result);
-	}
-	return result;
+	PrimeGroupAE ae(&this->G);
+	return nextServer(m, &ae, ae.getNae().getEll());
 }
 
 mk OSpake::nextClient(message m){
