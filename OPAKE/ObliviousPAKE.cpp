@@ -166,12 +166,6 @@ void OPake::decodeFinalMessage(message m, Botan::OctetString &ivKey, Botan::Octe
 	ivConf = Botan::OctetString(m.begin()+3*8*sizeof(Botan::byte)+confLength+ivLength, ivLength);
 }
 
-void OPake::splitFinalCombinedMessage(Botan::OctetString m, Botan::OctetString &min, Botan::OctetString &conf){
-	Botan::u32bit length = Botan::BigInt::decode(m.begin(), 8, Botan::BigInt::Binary).to_u32bit()+8;
-	length += 16; // FIXME: have to make this length variable!!!
-	Util::OctetStringSplit(m, min, conf, length);
-}
-
 // initializes an IHME result set S (output of IHME encode function)
 // TODO: Need clean up function for S
 gcry_mpi_t* OPake::createIHMEResultSet(int numPwds){
@@ -266,7 +260,7 @@ mk OPake::nextServer(message m, AdmissibleEncoding *ae, Botan::BigInt P, encodeS
 	return result;
 }
 
-mk OPake::nextClient(message m, Botan::BigInt ihmeP, encodeOutgoingMessage encode, decodeIncommingServerMessage decode, AdmissibleEncoding *ae, int nu) {
+mk OPake::nextClient(message m, Botan::BigInt ihmeP, encodeOutgoingMessage encode, AdmissibleEncoding *ae, decodeIncommingServerMessage decode, int nu) {
 	mk result;
 
 	if (!this->finished){ // normal PAKE computations here
@@ -281,15 +275,12 @@ mk OPake::nextClient(message m, Botan::BigInt ihmeP, encodeOutgoingMessage encod
 			initpoint(&P[k]);
 		int pos = 0;
 
-		// decode incoming message
-		message min = decode(m)[0];
-
 		// FIXME: be able to handle less than c passwords!
 		// iterate over passwords
 		for (int i = 0; i < this->c; ++i) { //FIXME: incoming m could be empty!
 
 			// call underlying PAKE
-			mk piResult = this->procs[i]->next(min);
+			mk piResult = this->procs[i]->next(m);
 
 			// FIXME: choose random message otherwise!
 			if (piResult.m.length() != 0) {
@@ -335,14 +326,21 @@ mk OPake::nextClient(message m, Botan::BigInt ihmeP, encodeOutgoingMessage encod
 		// decode incoming message
 		// min[0] := confirmation message, min[1] := server message or
 		// min[0] := confirmation message
-		std::vector<message> min = decode(m);
 
-		// add incoming message to sid
-		if (min.size() > 1) {
-			this->sid.insert(this->sid.end(), min[1].begin(), min[1].begin()+min[1].length());
+		message confM, min;
+
+		if (decode != 0) {
+			std::vector<message> tmp = decode(m);
+
+			// add incoming message to sid
+			this->sid.insert(this->sid.end(), tmp[1].begin(), tmp[1].begin()+tmp[1].length());
+
+			confM = tmp[0];
+			min = tmp[1];
+		} else {
+			confM = m;
 		}
 
-		message confM = min[0];
 
 		Botan::OctetString ivKey, ivConf;
 		Botan::SecureVector<Botan::byte> confVal;
@@ -353,22 +351,25 @@ mk OPake::nextClient(message m, Botan::BigInt ihmeP, encodeOutgoingMessage encod
 			Botan::OctetString key;
 
 			mk piResult;
-			if (min.size() > 1) {
+			if (min.length() > 1) {
 				// call underlying PAKE
-				piResult = this->procs[var]->next(min[1]);
+				piResult = this->procs[var]->next(min);
 				key = piResult.k;
 			} else {
 				key = this->keys[var];
 			}
 
 			// generate confirmation message for every computed key
-			Botan::OctetString conf;
-			confGen(key, &conf, &ivConf, this->sid);
+			// only have to do this when we have a key!
+			if (key.length() > 1) {
+				Botan::OctetString conf;
+				confGen(key, &conf, &ivConf, this->sid);
 
-			if (conf == confVal){
-				std::cout << "got the key :)\n";
-				keyGen(key, &result.k, &ivKey, this->sid);
-				break; // XXX: we can stop when we found the correct key; Problem: Side-Channel Attacks
+				if (conf == confVal){
+					std::cout << "got the key :)\n";
+					keyGen(key, &result.k, &ivKey, this->sid);
+					break; // XXX: we can stop when we found the correct key; Problem: Side-Channel Attacks
+				}
 			}
 		}
 	}

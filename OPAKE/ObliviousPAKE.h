@@ -40,7 +40,6 @@ protected:
 	Botan::SecureVector<Botan::byte> PRF(Botan::OctetString, Botan::SecureVector<Botan::byte>, std::string, Botan::InitializationVector *);
 	mk finalServerMessage(mk);
 	void decodeFinalMessage(message m, Botan::OctetString &ivKey, Botan::OctetString &ivConf, Botan::SecureVector<Botan::byte> &confVal);
-	void splitFinalCombinedMessage(Botan::OctetString m, Botan::OctetString &min, Botan::OctetString &conf);
 	gcry_mpi_t* MessageToS(Botan::OctetString, int);
 	gcry_mpi_t** MessageToNuS(Botan::OctetString, int, int);
 	Botan::BigInt ihmeDecode(message, int, Botan::BigInt, gcry_mpi_t p);
@@ -50,7 +49,7 @@ protected:
 	Botan::OctetString encodeNuS(gcry_mpi_t **, int, int);
 
 	mk nextServer(message m, AdmissibleEncoding *ae, Botan::BigInt P, encodeServerMessage enc = 0, int nu = 0);
-	mk nextClient(message m, Botan::BigInt ihmeP, encodeOutgoingMessage encode, decodeIncommingServerMessage decode, AdmissibleEncoding *ae, int nu = 0);
+	mk nextClient(message m, Botan::BigInt ihmeP, encodeOutgoingMessage encode, AdmissibleEncoding *ae, decodeIncommingServerMessage decode = 0, int nu = 0);
 	void init(std::vector<std::string> pwds, ROLE role, int c, Pake *p);
 
 public:

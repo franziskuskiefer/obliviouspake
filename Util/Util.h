@@ -49,6 +49,7 @@ public:
 
 	static void addOctetStringToVector(Botan::OctetString toAdd, std::vector<Botan::byte> *vec, bool addLength);
 	static void OctetStringConcat(Botan::OctetString &first, Botan::OctetString second, bool addLength);
+	static void splitFinalCombinedMessage(Botan::OctetString m, Botan::OctetString &min, Botan::OctetString &conf);
 	static void OctetStringSplit(Botan::OctetString in, Botan::OctetString &first, Botan::OctetString &second, Botan::u32bit sizeOfFirst);
 };
 

@@ -76,6 +76,12 @@ void Util::OctetStringConcat(Botan::OctetString &first, Botan::OctetString secon
 	first = concatenated;
 }
 
+void Util::splitFinalCombinedMessage(Botan::OctetString m, Botan::OctetString &min, Botan::OctetString &conf){
+	Botan::u32bit length = Botan::BigInt::decode(m.begin(), 8, Botan::BigInt::Binary).to_u32bit()+8;
+	length += 16; // FIXME: have to make this length variable!!!
+	Util::OctetStringSplit(m, min, conf, length);
+}
+
 void Util::OctetStringSplit(Botan::OctetString in, Botan::OctetString &first, Botan::OctetString &second, Botan::u32bit sizeOfFirst) {
 	first = Botan::OctetString(in.begin(), sizeOfFirst);
 	second = Botan::OctetString(in.begin()+sizeOfFirst, in.length()-sizeOfFirst);

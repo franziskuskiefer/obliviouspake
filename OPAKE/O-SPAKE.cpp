@@ -30,11 +30,6 @@ mk OSpake::nextServer(message m){
 	return nextServer(m, &ae, ae.getNae().getEll());
 }
 
-std::vector<message> decodeIncommingServer(message m){
-	std::vector<message> result;
-	result.push_back(m);
-	return result;
-}
 Botan::BigInt encodeOutgoing(message m, AdmissibleEncoding *ae, bool *finished){
 	// encode the client's messages (admissible encoding)
 	Botan::BigInt out = Botan::BigInt("0x"+m.as_string());
@@ -51,8 +46,7 @@ mk OSpake::nextClient(message m){
 	PrimeGroupAE ae(this->G);
 
 	encodeOutgoingMessage enc = &encodeOutgoing;
-	decodeIncommingServerMessage dec = &decodeIncommingServer;
-	return nextClient(m, ae.getNae().getEll(), enc, dec, &ae);
+	return nextClient(m, ae.getNae().getEll(), enc, &ae);
 }
 
 mk OSpake::next(message m) {
