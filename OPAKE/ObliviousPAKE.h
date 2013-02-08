@@ -17,6 +17,9 @@
 
 #include <boost/shared_ptr.hpp>
 
+typedef std::vector<message> (*decodeIncommingServerMessage)(message m);
+typedef Botan::BigInt (*encodeOutgoingMessage)(message m, AdmissibleEncoding *ae, bool *finished);
+
 class OPake {
 
 protected:
@@ -46,6 +49,7 @@ protected:
 	Botan::OctetString encodeNuS(gcry_mpi_t **, int, int);
 
 	mk nextServer(message m, AdmissibleEncoding *ae, Botan::BigInt P);
+	mk nextClient(message m, Botan::BigInt ihmeP, encodeOutgoingMessage encode, decodeIncommingServerMessage decode, AdmissibleEncoding *ae, int nu = 0);
 	void init(std::vector<std::string> pwds, ROLE role, int c, Pake *p);
 
 public:

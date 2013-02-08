@@ -238,3 +238,112 @@ mk OPake::nextServer(message m, AdmissibleEncoding *ae, Botan::BigInt P){
 	}
 	return result;
 }
+
+mk OPake::nextClient(message m, Botan::BigInt ihmeP, encodeOutgoingMessage encode, decodeIncommingServerMessage decode, AdmissibleEncoding *ae, int nu) {
+	mk result;
+
+	if (!this->finished){ // normal PAKE computations here
+		// clear key vector
+		this->keys.clear();
+		// add incoming message to sid
+		this->sid.insert(this->sid.end(), m.begin(), m.begin()+m.length());
+
+		// construct Point structure P for IHME
+		struct point P[this->c];
+		for (int k = 0; k < this->c; k++)
+			initpoint(&P[k]);
+		int pos = 0;
+
+		// decode incoming message
+		message min = decode(m)[0];
+
+		// FIXME: be able to handle less than c passwords!
+		// iterate over passwords
+		for (int i = 0; i < this->c; ++i) { //FIXME: incoming m could be empty!
+
+			// call underlying PAKE
+			mk piResult = this->procs[i]->next(min);
+
+			// FIXME: choose random message otherwise!
+			if (piResult.m.length() != 0) {
+				// encode the client's messages (admissible encoding and everything else)
+				Botan::BigInt aeEncoded = encode(piResult.m, ae, &this->finished);
+
+				// add out to IHME structure P
+				addElement(P, &pos, this->procs[i]->getPwd(), aeEncoded);
+			}
+
+			// store key for internal use
+			this->keys.insert(this->keys.end(), piResult.k);
+		}
+		// just return the first, is not the correct one anyway
+		result.k = this->keys[0];
+
+		// we don't have a message in the last round (only confirmation and key calculation there)
+		if (gcry_mpi_cmp_ui(P[0].x, 0)){
+			// compute IHME structure S from P with c passwords and modulus p
+			gcry_mpi_t p;
+			Util::BigIntToMpi(&p, ihmeP);
+
+			Botan::OctetString out;
+			if (nu == 0) {
+				gcry_mpi_t *S;
+				S = createIHMEResultSet(this->c);
+				interpolation_alg2(S, P, this->c, p);
+
+				// have to encode the S as OctetString
+				out = encodeS(S, this->c);
+			} else {
+				gcry_mpi_t **S;
+				S = createNuIHMEResultSet(this->c, nu);
+				v_fold_interleaving_encode(S, P, nu, this->c, p);
+
+				// have to encode the S as OctetString
+				out = encodeNuS(S, this->c, nu);
+			}
+			result.m = out;
+			this->sid.insert(this->sid.end(), out.begin(),out.begin()+out.length());
+		}
+	} else { // Here Pi finished and the incoming message is the confirmation message and maybe the last server message
+		// decode incoming message
+		// min[0] := confirmation message, min[1] := server message or
+		// min[0] := confirmation message
+		std::vector<message> min = decode(m);
+
+		// add incoming message to sid
+		if (min.size() > 1) {
+			this->sid.insert(this->sid.end(), min[1].begin(), min[1].begin()+min[1].length());
+		}
+
+		message confM = min[0];
+
+		Botan::OctetString ivKey, ivConf;
+		Botan::SecureVector<Botan::byte> confVal;
+		decodeFinalMessage(confM, ivKey, ivConf, confVal);
+
+		// compute keys for Client
+		for (int var = 0; var < this->c; ++var) {
+			Botan::OctetString key;
+
+			mk piResult;
+			if (min.size() > 1) {
+				// call underlying PAKE
+				piResult = this->procs[var]->next(min[1]);
+				key = piResult.k;
+			} else {
+				key = this->keys[var];
+			}
+
+			// generate confirmation message for every computed key
+			Botan::OctetString conf;
+			confGen(key, &conf, &ivConf, this->sid);
+
+			if (conf == confVal){
+				std::cout << "got the key :)\n";
+				keyGen(key, &result.k, &ivKey, this->sid);
+				break; // XXX: we can stop when we found the correct key; Problem: Side-Channel Attacks
+			}
+		}
+	}
+	return result;
+}

@@ -41,7 +41,7 @@ private:
 	z_p_star generate_Z();
 
 public:
-	PrimeGroupAE(Botan::DL_Group*);
+	PrimeGroupAE(Botan::DL_Group);
 	Botan::BigInt encode(Botan::BigInt);
 	Botan::BigInt decode(Botan::BigInt);
 	std::vector<Botan::BigInt> primeFactors(Botan::BigInt); // XXX: make private again

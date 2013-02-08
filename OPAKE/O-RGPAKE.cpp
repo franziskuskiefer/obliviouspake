@@ -23,7 +23,7 @@ mk ORGpake::nextServer(message m){
 	Botan::OctetString messageIn;
 	if (m.length() != 0){
 		// get correct message first
-		PrimeGroupAE ae(&this->G);
+		PrimeGroupAE ae(this->G);
 		gcry_mpi_t p;
 		Util::BigIntToMpi(&p, ae.getNae().getEll());
 		int nu = 5;
@@ -78,7 +78,7 @@ mk ORGpake::nextClient(message m){
 		int pos = 0;
 
 		// prepare Admissible Encoding
-		PrimeGroupAE ae(&this->G);
+		PrimeGroupAE ae(this->G);
 
 		// Iterate over pake instances
 		//FIXME: incoming m could be empty! -> really?

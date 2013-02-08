@@ -24,8 +24,9 @@ private:
 	Botan::BigInt M, N;
 	std::string crs;
 
-	using OPake::nextServer;
 	using OPake::init;
+	using OPake::nextServer;
+	using OPake::nextClient;
 	mk nextServer(message m);
 	mk nextClient(message m);
 

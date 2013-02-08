@@ -26,84 +26,34 @@ Botan::BigInt decodeMessage(message m){
 }
 
 mk OSpake::nextServer(message m){
-	PrimeGroupAE ae(&this->G);
+	PrimeGroupAE ae(this->G);
 	return nextServer(m, &ae, ae.getNae().getEll());
 }
 
-mk OSpake::nextClient(message m){
-	mk result;
-
-	// Need this all over the place!
-	PrimeGroupAE ae(&this->G);
-
-	if (!this->finished){ // normal PAKE computations here
-		// clear key vector
-		this->keys.clear();
-		// add incoming message to sid
-		this->sid.insert(this->sid.end(), m.begin(), m.begin()+m.length());
-
-		struct point P[this->c];
-		for (int k = 0; k < this->c; k++)
-			initpoint(&P[k]);
-		int pos = 0;
-		for (int i = 0; i < this->c; ++i) { //FIXME: incoming m could be empty!
-			mk piResult = this->procs[i]->next(m);
-			if (piResult.m.length() == 0) {// there is no message anymore.... stop the bloody protocol
-				// do not handle empty messages
-				// FIXME: do we have to use random messages here?
-				this->finished = true;
-			} else { // only if there is really a message from Pi.next, we have to process it
-				// encode the client's (Alice) messages (admissible encoding)
-				Botan::BigInt out = Botan::BigInt("0x"+piResult.m.as_string()); // FIXME: get BigInt direct from Pi!
-
-				// add admissible encoding
-				Botan::BigInt aeEncoded = ae.encode(out);
-
-				// add out to IHME structure P
-				addElement(P, &pos, this->procs[i]->getPwd(), aeEncoded);
-			}
-
-			// store also the key in the vector // FIXME: has to be done different!
-			this->keys.insert(this->keys.end(), piResult.k);
-		}
-		result.k = this->keys[1]; // FIXME: have to return all keys....
-
-		// we don't have a message in the last round (only confirmation and key calculation there)
-		if (!this->finished){
-			// compute IHME structure S from P with c passwords and modulus p
-			gcry_mpi_t p;
-			Util::BigIntToMpi(&p, ae.getNae().getEll());
-			gcry_mpi_t *S;
-			S = createIHMEResultSet(this->c);
-			interpolation_alg2(S, P, this->c, p);
-
-			// have to encode the S as OctetString
-			Botan::OctetString out = encodeS(S, this->c);
-			result.m = out;
-			this->sid.insert(this->sid.end(), out.begin(),out.begin()+out.length());
-
-			// FIXME: when can we set finished?
-			this->finished = true;
-		}
-	} else { // Here Pi finished and the incoming message is the confirmation message
-		Botan::OctetString ivKey, ivConf;
-		Botan::SecureVector<Botan::byte> confVal;
-		decodeFinalMessage(m, ivKey, ivConf, confVal);
-
-		// compute keys for Client
-		for (int var = 0; var < this->c; ++var) {
-			// generate confirmation message for every computed key
-			Botan::OctetString conf;
-			confGen(this->keys[var], &conf, &ivConf, this->sid);
-
-			if (conf == confVal){
-				std::cout << "got the key :)\n";
-				keyGen(this->keys[var], &result.k, &ivKey, this->sid);
-				break; // XXX: we can stop when we found the correct key; Problem: Side-Channel Attacks
-			}
-		}
-	}
+std::vector<message> decodeIncommingServer(message m){
+	std::vector<message> result;
+	result.push_back(m);
 	return result;
+}
+Botan::BigInt encodeOutgoing(message m, AdmissibleEncoding *ae, bool *finished){
+	// encode the client's messages (admissible encoding)
+	Botan::BigInt out = Botan::BigInt("0x"+m.as_string());
+
+	// we have only one message -> set finished
+	*finished = true;
+
+	// add admissible encoding
+	return ae->encode(out);
+}
+
+mk OSpake::nextClient(message m){
+	// Need this all over the place!
+	PrimeGroupAE ae(this->G);
+
+	encodeOutgoingMessage enc = &encodeOutgoing;
+	decodeIncommingServerMessage dec = &decodeIncommingServer;
+	//message m, Botan::BigInt ihmeP, encodeOutgoingMessage encode, decodeIncommingServerMessage decode, AdmissibleEncoding *ae, int nu = 0
+	return nextClient(m, ae.getNae().getEll(), enc, dec, &ae);
 }
 
 mk OSpake::next(message m) {

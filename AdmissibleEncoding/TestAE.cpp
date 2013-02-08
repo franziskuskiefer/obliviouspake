@@ -23,27 +23,27 @@ void testGroups(){
 
 	std::cout << "modp/ietf/1536\n";
 	Botan::DL_Group G("modp/ietf/1536");
-	PrimeGroupAE pae(&G);
+	PrimeGroupAE pae(G);
 
 	std::cout << "modp/ietf/2048\n";
 	G = Botan::DL_Group("modp/ietf/1536");
-	PrimeGroupAE pae6(&G);
+	PrimeGroupAE pae6(G);
 
 	std::cout << "modp/ietf/3072\n";
 	G = Botan::DL_Group("modp/ietf/3072");
-	PrimeGroupAE pae2(&G);
+	PrimeGroupAE pae2(G);
 
 	std::cout << "modp/ietf/4096\n";
 	G = Botan::DL_Group("modp/ietf/4096");
-	PrimeGroupAE pae3(&G);
+	PrimeGroupAE pae3(G);
 
 	std::cout << "modp/ietf/6144\n";
 	G = Botan::DL_Group("modp/ietf/6144");
-	PrimeGroupAE pae4(&G);
+	PrimeGroupAE pae4(G);
 
 	std::cout << "modp/ietf/8192\n";
 	G = Botan::DL_Group("modp/ietf/8192");
-	PrimeGroupAE pae5(&G);
+	PrimeGroupAE pae5(G);
 }
 
 void paEncDecTest(Botan::AutoSeeded_RNG *rng){

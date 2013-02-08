@@ -7,8 +7,8 @@
 
 #include "PrimeGroupAE.h"
 
-PrimeGroupAE::PrimeGroupAE(Botan::DL_Group* G) {
-	this->G = *G;
+PrimeGroupAE::PrimeGroupAE(Botan::DL_Group G) {
+	this->G = G;
 
 	// generate Z_P^*
 	this->Z = generate_Z();
