@@ -52,7 +52,6 @@ mk OSpake::nextClient(message m){
 
 	encodeOutgoingMessage enc = &encodeOutgoing;
 	decodeIncommingServerMessage dec = &decodeIncommingServer;
-	//message m, Botan::BigInt ihmeP, encodeOutgoingMessage encode, decodeIncommingServerMessage decode, AdmissibleEncoding *ae, int nu = 0
 	return nextClient(m, ae.getNae().getEll(), enc, dec, &ae);
 }
 

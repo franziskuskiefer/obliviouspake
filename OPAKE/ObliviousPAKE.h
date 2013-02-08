@@ -19,6 +19,7 @@
 
 typedef std::vector<message> (*decodeIncommingServerMessage)(message m);
 typedef Botan::BigInt (*encodeOutgoingMessage)(message m, AdmissibleEncoding *ae, bool *finished);
+typedef Botan::OctetString (*encodeServerMessage)(std::vector<Botan::BigInt>);
 
 class OPake {
 
@@ -43,12 +44,12 @@ protected:
 	gcry_mpi_t* MessageToS(Botan::OctetString, int);
 	gcry_mpi_t** MessageToNuS(Botan::OctetString, int, int);
 	Botan::BigInt ihmeDecode(message, int, Botan::BigInt, gcry_mpi_t p);
-	Botan::OctetString nuIhmeDecode(message, Botan::DL_Group, int, int, Botan::BigInt, gcry_mpi_t p);
+	Botan::OctetString nuIhmeDecode(message, int, int, Botan::BigInt, gcry_mpi_t p);
 	gcry_mpi_t* createIHMEResultSet(int);
 	gcry_mpi_t** createNuIHMEResultSet(int, int);
 	Botan::OctetString encodeNuS(gcry_mpi_t **, int, int);
 
-	mk nextServer(message m, AdmissibleEncoding *ae, Botan::BigInt P);
+	mk nextServer(message m, AdmissibleEncoding *ae, Botan::BigInt P, encodeServerMessage enc = 0, int nu = 0);
 	mk nextClient(message m, Botan::BigInt ihmeP, encodeOutgoingMessage encode, decodeIncommingServerMessage decode, AdmissibleEncoding *ae, int nu = 0);
 	void init(std::vector<std::string> pwds, ROLE role, int c, Pake *p);
 

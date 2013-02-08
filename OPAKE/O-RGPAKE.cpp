@@ -18,47 +18,18 @@ void ORGpake::init(std::vector<std::string> pwds, ROLE role, int c) {
 	init(pwds, role, c, tmp);
 }
 
-mk ORGpake::nextServer(message m){
-	mk result;
-	Botan::OctetString messageIn;
-	if (m.length() != 0){
-		// get correct message first
-		PrimeGroupAE ae(this->G);
-		gcry_mpi_t p;
-		Util::BigIntToMpi(&p, ae.getNae().getEll());
-		int nu = 5;
-		Botan::OctetString aeDecodedM = nuIhmeDecode(m, this->G, c, nu, this->procs[0]->getPwd(), p);
-		size_t length = ae.getNae().getEll().bits()/8;
-		Botan::BigInt s = Botan::BigInt::decode(aeDecodedM.begin(), length, Botan::BigInt::Binary);
-		Botan::BigInt u1 = Botan::BigInt::decode(aeDecodedM.begin()+length, length, Botan::BigInt::Binary);
-		Botan::BigInt u2 = Botan::BigInt::decode(aeDecodedM.begin()+2*length, length, Botan::BigInt::Binary);
-		Botan::BigInt e = Botan::BigInt::decode(aeDecodedM.begin()+3*length, length, Botan::BigInt::Binary);
-		Botan::BigInt v = Botan::BigInt::decode(aeDecodedM.begin()+4*length, length, Botan::BigInt::Binary);
-		s = ae.decode(s);
-		u1 = ae.decode(u1);
-		u2 = ae.decode(u2);
-		e = ae.decode(e);
-		v = ae.decode(v);
-		Ciphertext c = {u1, u2, e, v};
-		RG_DDH::messageEncode(messageIn, s, c);
-	} else {
-		messageIn = m;
-	}
-	result = this->procs[0]->next(messageIn);
-
-	this->sid.insert(this->sid.end(), m.begin(), m.begin()+m.length());
-	this->sid.insert(this->sid.end(), result.m.begin(), result.m.begin()+result.m.length());
-
-	// calculate confirmation message and real final key
-	if (result.k.length() != 0){
-		std::cout << "creating confirmation message and final key...\n";
-		mk finalResult = finalServerMessage(result);
-		// replace key in result and append confirmation message to last RG-PAKE message
-		result.k = finalResult.k;
-		Util::OctetStringConcat(result.m, finalResult.m, false);
-	}
-
+Botan::OctetString encodeOutgoingServerMessage(std::vector<Botan::BigInt> in){
+	Ciphertext c = {in[1], in[2], in[3], in[4]};
+	Botan::OctetString result;
+	RG_DDH::messageEncode(result, in[0], c);
 	return result;
+}
+
+mk ORGpake::nextServer(message m){
+	PrimeGroupAE ae(this->G);
+
+	encodeServerMessage enc = &encodeOutgoingServerMessage;
+	return nextServer(m, &ae, ae.getNae().getEll(), enc, 5);
 }
 
 mk ORGpake::nextClient(message m){

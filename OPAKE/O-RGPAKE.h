@@ -23,8 +23,9 @@ private:
 	Botan::DL_Group G;
 	PublicKey pk;
 
-	using OPake::nextServer;
 	using OPake::init;
+	using OPake::nextServer;
+	using OPake::nextClient;
 	mk nextServer(message m);
 	mk nextClient(message m);
 

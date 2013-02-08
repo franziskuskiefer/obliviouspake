@@ -53,7 +53,7 @@ Botan::BigInt OPake::ihmeDecode(message m, int c, Botan::BigInt pwd, gcry_mpi_t 
 	return Util::MpiToBigInt(encoded_public_A_MPI);
 }
 
-Botan::OctetString OPake::nuIhmeDecode(message m, Botan::DL_Group G, int c, int nu, Botan::BigInt pwd, gcry_mpi_t p){
+Botan::OctetString OPake::nuIhmeDecode(message m, int c, int nu, Botan::BigInt pwd, gcry_mpi_t p){
 	// get message from m to S
 	gcry_mpi_t **S = MessageToNuS(m, c, nu);
 	// IHME decode
@@ -213,16 +213,32 @@ void OPake::init(std::vector<std::string> pwds, ROLE role, int c, Pake *p){
 	}
 }
 
-mk OPake::nextServer(message m, AdmissibleEncoding *ae, Botan::BigInt P){
+mk OPake::nextServer(message m, AdmissibleEncoding *ae, Botan::BigInt P, encodeServerMessage enc, int nu){
 	mk result;
 	Botan::OctetString messageIn;
 	if (m.length() != 0){
 		// get correct message first
 		gcry_mpi_t p;
 		Util::BigIntToMpi(&p, P);
-		Botan::BigInt aeDecodedM = ihmeDecode(m, c, this->procs[0]->getPwd(), p);
-		Botan::BigInt message = ae->decode(aeDecodedM);
-		messageIn = Botan::OctetString(Botan::BigInt::encode(message));
+
+		// only a single element in the PAKE message or is it composed?
+		if (nu == 0){
+			Botan::BigInt aeEncodedM = ihmeDecode(m, c, this->procs[0]->getPwd(), p);
+			Botan::BigInt message = ae->decode(aeEncodedM);
+			messageIn = Botan::OctetString(Botan::BigInt::encode(message));
+		} else {
+			Botan::OctetString aeEncodedM = nuIhmeDecode(m, c, nu, this->procs[0]->getPwd(), p);
+
+			// now split aeEncodedM into the elements to reconstruct the original PAKE message from it
+			size_t length = P.bits()/8;
+			std::vector<Botan::BigInt> aeDecoded;
+			int numElements = aeEncodedM.length()/length; // XXX: has to be an int, otherwise something went wrong
+			for (int i = 0; i < numElements; ++i) {
+				Botan::BigInt tmp = Botan::BigInt::decode(aeEncodedM.begin()+i*length, length, Botan::BigInt::Binary);
+				aeDecoded.push_back(ae->decode(tmp));
+			}
+			messageIn = enc(aeDecoded);
+		}
 	} else {
 		messageIn = m;
 	}
@@ -232,9 +248,20 @@ mk OPake::nextServer(message m, AdmissibleEncoding *ae, Botan::BigInt P){
 	this->sid.insert(this->sid.end(), result.m.begin(), result.m.begin()+result.m.length());
 
 	// calculate confirmation message and real final key
-	if (result.m.length() == 0){
+	if (result.m.length() == 0 || result.k.length() != 0){
 		std::cout << "creating confirmation message and final key...\n";
-		result = finalServerMessage(result);
+
+		mk finalResult = finalServerMessage(result);
+
+		// check whether there is a last PAKE server message or not
+		if (result.m.length() == 0) {
+			result = finalResult;
+		} else {
+			// replace key in result and append confirmation message to last message
+			result.k = finalResult.k;
+			Util::OctetStringConcat(result.m, finalResult.m, false);
+		}
+
 	}
 	return result;
 }
