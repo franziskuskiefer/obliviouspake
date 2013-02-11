@@ -123,14 +123,15 @@ void OPake::confGen(Botan::OctetString K, Botan::OctetString *conf, Botan::Initi
 	*conf = Botan::OctetString(PRF(K, sidVec, forConf, iv));
 }
 
-// simulating a keyed PRF as AES encryption of the input
-// FIXME: How to implement PRF correct?
+// simulating a keyed PRF using CBC-MAC with AES256
 Botan::SecureVector<Botan::byte> OPake::PRF(Botan::OctetString k, Botan::SecureVector<Botan::byte> sid, std::string indicator, Botan::InitializationVector *iv){
 	Botan::AutoSeeded_RNG rng;
 	if (iv->length() == 0)
 		*iv = Botan::InitializationVector(rng, 16); // a random 128-bit IV
 
-	Botan::Pipe pipe(Botan::get_cipher("AES-256/CBC", k, *iv, Botan::ENCRYPTION), new Botan::Hash_Filter("SHA-256"));
+	// CBC-MAC(AES-256) AES-256/CBC
+//	Botan::Pipe pipe(Botan::get_cipher("AES-256/CBC", k, *iv, Botan::ENCRYPTION), new Botan::Hash_Filter("SHA-256"));
+	Botan::Pipe pipe(new Botan::MAC_Filter("CBC-MAC(AES-256)", k));
 
 	std::string toEnc = Botan::OctetString(sid).as_string()+indicator;
 	pipe.process_msg(toEnc);
@@ -237,6 +238,9 @@ mk OPake::nextServer(message m, AdmissibleEncoding *ae, Botan::BigInt P, encodeS
 		messageIn = m;
 	}
 	result = this->procs[0]->next(messageIn);
+
+	if (result.k.length() != 0)
+		this->keys.push_back(result.k);
 
 	this->sid.insert(this->sid.end(), m.begin(), m.begin()+m.length());
 	this->sid.insert(this->sid.end(), result.m.begin(), result.m.begin()+result.m.length());

@@ -20,11 +20,6 @@ void OSpake::init(std::vector<std::string> pwds, ROLE role, int c) {
 	init(pwds, role, c, tmp);
 }
 
-// simple decoding (have only one BigInt there)
-Botan::BigInt decodeMessage(message m){
-	return Botan::BigInt("0x"+m.as_string());
-}
-
 mk OSpake::nextServer(message m){
 	PrimeGroupAE ae(this->G);
 	return nextServer(m, &ae, ae.getNae().getEll());
