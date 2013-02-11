@@ -68,7 +68,7 @@ Botan::OctetString OPake::nuIhmeDecode(message m, int c, int nu, Botan::BigInt p
 void OPake::addElement(struct point *P, int *pos, Botan::BigInt pwd, Botan::BigInt m){
 	// convert BigInts to MPIs
 	gcry_mpi_t pwdMpi;
-	Util::BigIntToMpi(&pwdMpi, pwd); // FIXME: do we need an admissible encoding here too?!
+	Util::BigIntToMpi(&pwdMpi, pwd);
 	gcry_mpi_t mMpi;
 	Util::BigIntToMpi(&mMpi, m);
 
@@ -247,7 +247,9 @@ mk OPake::nextServer(message m, AdmissibleEncoding *ae, Botan::BigInt P, encodeS
 
 	// calculate confirmation message and real final key
 	if (result.m.length() == 0 || result.k.length() != 0){
+#ifdef DEBUG
 		std::cout << "creating confirmation message and final key...\n";
+#endif
 
 		mk finalResult = finalServerMessage(result);
 
@@ -370,7 +372,9 @@ mk OPake::nextClient(message m, Botan::BigInt ihmeP, encodeOutgoingMessage encod
 				confGen(key, &conf, &ivConf, this->sid);
 
 				if (conf == confVal){
+#ifdef DEBUG
 					std::cout << "got the key :)\n";
+#endif
 					keyGen(key, &result.k, &ivKey, this->sid);
 					break; // XXX: we can stop when we found the correct key; Problem: Side-Channel Attacks
 				}

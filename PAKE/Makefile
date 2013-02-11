@@ -1,6 +1,7 @@
 # Makefile for PAKE tests
 CC=g++
 CFLAGS=-I. -I./* -Wall -O3 -pthread
+debug: CFLAGS = -I. -I./* -Wall -O3 -pthread -DDEBUG
 LDFLAGS=-Wl,-as-needed -lboost_system -lbotan-1.10 -lgnutls -lgcrypt 
 SOURCES=*/*.cpp *.cpp
 UTILSRC=../Util/*.cpp
@@ -23,6 +24,9 @@ cramershoup:
 
 rg-ddh-pake:
 	$(CC) $(CFLAGS) $(RGDDHSRCS) $(LDFLAGS) -o $(RGDDHOUTPUT)
+	
+debug: all
+	
 
 clean:
 	rm -f $(OUTPUT) $(SPAKEOUTPUT) $(CSOUTPUT) $(RGDDHOUTPUT)

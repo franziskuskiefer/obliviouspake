@@ -83,7 +83,9 @@ mk ORGpake::nextClient(message m){
 }
 
 mk ORGpake::next(message m) {
+#ifdef DEBUG
 	std::cout << "--------------------- " << (this->procs[0]->getR() ? "Client" : "Server") << "---------------------\n";
+#endif
 	if (this->procs[0]->getR() == SERVER) {
 		return nextServer(m);
 	} else { // this has to be a client....

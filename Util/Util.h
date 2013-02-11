@@ -20,6 +20,8 @@
 
 #include "../IHME/IHME.h"
 
+#define BILLION 1000000000L
+
 enum ROLE {SERVER = 0, CLIENT = 1};
 
 typedef Botan::OctetString key;
@@ -51,6 +53,8 @@ public:
 	static void OctetStringConcat(Botan::OctetString &first, Botan::OctetString second, bool addLength);
 	static void splitFinalCombinedMessage(Botan::OctetString m, Botan::OctetString &min, Botan::OctetString &conf);
 	static void OctetStringSplit(Botan::OctetString in, Botan::OctetString &first, Botan::OctetString &second, Botan::u32bit sizeOfFirst);
+
+	static void gen_random(char *s, const int len);
 };
 
 

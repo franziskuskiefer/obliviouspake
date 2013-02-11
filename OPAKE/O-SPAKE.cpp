@@ -45,7 +45,9 @@ mk OSpake::nextClient(message m){
 }
 
 mk OSpake::next(message m) {
-	std::cout << "--------------------- " << (this->procs[0]->getR() ? "Client" : "Server") << "---------------------\n";
+#ifdef DEBUG
+		std::cout << "--------------------- " << (this->procs[0]->getR() ? "Client" : "Server") << "---------------------\n";
+#endif
 	if (this->procs[0]->getR() == SERVER) {
 		return nextServer(m);
 	} else {
