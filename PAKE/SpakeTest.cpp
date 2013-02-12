@@ -63,6 +63,8 @@ void test2(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string sess
 		std::cout << "Client key: " << c1.k.as_string() << "\n";
 		std::cout << "Server key: " << s2.k.as_string() << "\n";
 		std::cout << ((c1.k == s2.k) ? "Everything worked fine with SPAKE :)" : ":( Something went wrong with SPAKE...")  << "\n\n";
+		printf("Client next: %lf sec\n", clientTime);
+		printf("Server next: %lf sec\n", serverTime);
 #endif
 		clientAcc += clientTime;
 		serverAcc += serverTime;

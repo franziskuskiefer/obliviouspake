@@ -7,7 +7,7 @@
 
 #include "O-RGPAKE.h"
 
-ORGpake::ORGpake(Botan::DL_Group G, std::string crs, PublicKey pk) {
+ORGpake::ORGpake(Botan::DL_Group G, std::string crs, PublicKey pk) : ae(G) {
 	finished = false;
 	this->pk = pk;
 	this->G = G;
@@ -26,8 +26,6 @@ Botan::OctetString encodeOutgoingServerMessage(std::vector<Botan::BigInt> in){
 }
 
 mk ORGpake::nextServer(message m){
-	PrimeGroupAE ae(this->G);
-
 	encodeServerMessage enc = &encodeOutgoingServerMessage;
 	return nextServer(m, &ae, ae.getNae().getEll(), enc, 5);
 }
@@ -74,9 +72,6 @@ Botan::BigInt encodeOutgoing(message m, AdmissibleEncoding *ae, bool *finished){
 }
 
 mk ORGpake::nextClient(message m){
-	// Need this all over the place!
-	PrimeGroupAE ae(this->G);
-
 	encodeOutgoingMessage enc = &encodeOutgoing;
 	decodeIncommingServerMessage dec = &decodeIncommingServer;
 	return nextClient(m, ae.getNae().getEll(), enc, &ae, dec, 5);

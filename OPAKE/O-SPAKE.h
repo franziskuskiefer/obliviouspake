@@ -23,6 +23,7 @@ private:
 	Botan::DL_Group G;
 	Botan::BigInt M, N;
 	std::string crs;
+	PrimeGroupAE ae;
 
 	using OPake::init;
 	using OPake::nextServer;

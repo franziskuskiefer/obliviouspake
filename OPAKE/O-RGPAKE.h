@@ -22,6 +22,7 @@ private:
 
 	Botan::DL_Group G;
 	PublicKey pk;
+	PrimeGroupAE ae;
 
 	using OPake::init;
 	using OPake::nextServer;

@@ -7,7 +7,7 @@
 
 #include "O-SPAKE.h"
 
-OSpake::OSpake(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string crs) {
+OSpake::OSpake(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string crs) : ae(G){
 	this->G = G;
 	this->M = M;
 	this->N = N;
@@ -21,8 +21,7 @@ void OSpake::init(std::vector<std::string> pwds, ROLE role, int c) {
 }
 
 mk OSpake::nextServer(message m){
-	PrimeGroupAE ae(this->G);
-	return nextServer(m, &ae, ae.getNae().getEll());
+	return nextServer(m, &this->ae, this->ae.getNae().getEll());
 }
 
 Botan::BigInt encodeOutgoing(message m, AdmissibleEncoding *ae, bool *finished){
@@ -37,11 +36,8 @@ Botan::BigInt encodeOutgoing(message m, AdmissibleEncoding *ae, bool *finished){
 }
 
 mk OSpake::nextClient(message m){
-	// Need this all over the place!
-	PrimeGroupAE ae(this->G);
-
 	encodeOutgoingMessage enc = &encodeOutgoing;
-	return nextClient(m, ae.getNae().getEll(), enc, &ae);
+	return nextClient(m, this->ae.getNae().getEll(), enc, &this->ae);
 }
 
 mk OSpake::next(message m) {
