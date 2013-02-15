@@ -109,28 +109,23 @@ Botan::OctetString OPake::encodeNuS(gcry_mpi_t **S, int c, int nu){
 }
 
 // generate the final key of OSpake
-void OPake::keyGen(Botan::OctetString K, Botan::OctetString *finalK, Botan::InitializationVector *iv, std::vector<Botan::byte> sid){
+void OPake::keyGen(Botan::OctetString K, Botan::OctetString *finalK, std::vector<Botan::byte> sid){
 	std::string forKey = "1";
 	// get S as byte vector
 	Botan::SecureVector<Botan::byte> sidVec(&sid[0], sid.size());
-	*finalK = Botan::OctetString(PRF(K, sidVec, forKey, iv));
+	*finalK = Botan::OctetString(PRF(K, sidVec, forKey));
 }
 
 // generate server confirmation message of OSpake
-void OPake::confGen(Botan::OctetString K, Botan::OctetString *conf, Botan::InitializationVector *iv, std::vector<Botan::byte> sid){
+void OPake::confGen(Botan::OctetString K, Botan::OctetString *conf, std::vector<Botan::byte> sid){
 	std::string forConf = "0";
 	Botan::SecureVector<Botan::byte> sidVec(&sid[0], sid.size());
-	*conf = Botan::OctetString(PRF(K, sidVec, forConf, iv));
+	*conf = Botan::OctetString(PRF(K, sidVec, forConf));
 }
 
 // simulating a keyed PRF using CBC-MAC with AES256
-Botan::SecureVector<Botan::byte> OPake::PRF(Botan::OctetString k, Botan::SecureVector<Botan::byte> sid, std::string indicator, Botan::InitializationVector *iv){
-	Botan::AutoSeeded_RNG rng;
-	if (iv->length() == 0)
-		*iv = Botan::InitializationVector(rng, 16); // a random 128-bit IV
-
+Botan::SecureVector<Botan::byte> OPake::PRF(Botan::OctetString k, Botan::SecureVector<Botan::byte> sid, std::string indicator){
 	// CBC-MAC(AES-256) AES-256/CBC
-//	Botan::Pipe pipe(Botan::get_cipher("AES-256/CBC", k, *iv, Botan::ENCRYPTION), new Botan::Hash_Filter("SHA-256"));
 	Botan::Pipe pipe(new Botan::MAC_Filter("CBC-MAC(AES-256)", k));
 
 	std::string toEnc = Botan::OctetString(sid).as_string()+indicator;
@@ -143,28 +138,13 @@ Botan::SecureVector<Botan::byte> OPake::PRF(Botan::OctetString k, Botan::SecureV
 
 mk OPake::finalServerMessage(mk min){
 	mk result;
-	Botan::InitializationVector ivKey, ivConf;
 	Botan::OctetString finalK, confVal;
-	keyGen(min.k, &finalK, &ivKey, this->sid);
-	confGen(min.k, &confVal, &ivConf, this->sid);
+	keyGen(min.k, &finalK, this->sid);
+	confGen(min.k, &confVal, this->sid);
 	result.k = finalK;
+	result.m = confVal;
 
-	// add IVs to message
-	std::vector<Botan::byte> out;
-	Util::addOctetStringToVector(confVal, &out, true);
-	Util::addOctetStringToVector(ivKey, &out, true);
-	Util::addOctetStringToVector(ivConf, &out, true);
-	result.m = Botan::OctetString(reinterpret_cast<const Botan::byte*>(&out[0]), out.size());
 	return result;
-}
-
-void OPake::decodeFinalMessage(message m, Botan::OctetString &ivKey, Botan::OctetString &ivConf, Botan::SecureVector<Botan::byte> &confVal){
-	Botan::u32bit confLength = Botan::BigInt::decode(m.begin(), 8, Botan::BigInt::Binary).to_u32bit();
-	confVal = Botan::SecureVector<Botan::byte>(m.begin()+8*sizeof(Botan::byte), confLength);
-
-	Botan::u32bit ivLength = Botan::BigInt::decode(m.begin()+8+confLength, 8, Botan::BigInt::Binary).to_u32bit();
-	ivKey = Botan::OctetString(m.begin()+2*8*sizeof(Botan::byte)+confLength, ivLength);
-	ivConf = Botan::OctetString(m.begin()+3*8*sizeof(Botan::byte)+confLength+ivLength, ivLength);
 }
 
 // initializes an IHME result set S (output of IHME encode function)
@@ -347,11 +327,6 @@ mk OPake::nextClient(message m, Botan::BigInt ihmeP, encodeOutgoingMessage encod
 			confM = m;
 		}
 
-
-		Botan::OctetString ivKey, ivConf;
-		Botan::SecureVector<Botan::byte> confVal;
-		decodeFinalMessage(confM, ivKey, ivConf, confVal);
-
 		// compute keys for Client
 		for (int var = 0; var < this->c; ++var) {
 			Botan::OctetString key;
@@ -369,13 +344,13 @@ mk OPake::nextClient(message m, Botan::BigInt ihmeP, encodeOutgoingMessage encod
 			// only have to do this when we have a key!
 			if (key.length() > 1) {
 				Botan::OctetString conf;
-				confGen(key, &conf, &ivConf, this->sid);
+				confGen(key, &conf, this->sid);
 
-				if (conf == confVal){
+				if (conf == confM){
 #ifdef DEBUG
 					std::cout << "got the key :)\n";
 #endif
-					keyGen(key, &result.k, &ivKey, this->sid);
+					keyGen(key, &result.k, this->sid);
 					break; // XXX: we can stop when we found the correct key; Problem: Side-Channel Attacks
 				}
 			}

@@ -35,11 +35,10 @@ protected:
 
 	void addElement(struct point*, int*, Botan::BigInt, Botan::BigInt);
 	Botan::OctetString encodeS(gcry_mpi_t*, int);
-	void keyGen(Botan::OctetString, Botan::OctetString *, Botan::InitializationVector *, std::vector<Botan::byte>);
-	void confGen(Botan::OctetString, Botan::OctetString *, Botan::InitializationVector *, std::vector<Botan::byte>);
-	Botan::SecureVector<Botan::byte> PRF(Botan::OctetString, Botan::SecureVector<Botan::byte>, std::string, Botan::InitializationVector *);
+	void keyGen(Botan::OctetString, Botan::OctetString *, std::vector<Botan::byte>);
+	void confGen(Botan::OctetString, Botan::OctetString *, std::vector<Botan::byte>);
+	Botan::SecureVector<Botan::byte> PRF(Botan::OctetString, Botan::SecureVector<Botan::byte>, std::string);
 	mk finalServerMessage(mk);
-	void decodeFinalMessage(message m, Botan::OctetString &ivKey, Botan::OctetString &ivConf, Botan::SecureVector<Botan::byte> &confVal);
 	gcry_mpi_t* MessageToS(Botan::OctetString, int);
 	gcry_mpi_t** MessageToNuS(Botan::OctetString, int, int);
 	Botan::BigInt ihmeDecode(message, int, Botan::BigInt, gcry_mpi_t p);
