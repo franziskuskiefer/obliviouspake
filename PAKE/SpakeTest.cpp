@@ -32,15 +32,25 @@ void test1(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string sess
 void test2(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string session_param, std::string pwd, int numRep){
 
 	double serverAcc = 0, clientAcc = 0;
+	bool error = false;
 
 	for (int i = 0; i < numRep; ++i) {
 		struct timespec start, stop;
 		double serverTime = 0, clientTime = 0;
 
 		// create Spake Server & Client instances
-		Spake server(G, M, N, session_param), client(G, M, N, session_param);
+
+		Spake server(G, M, N, session_param);
+		clock_gettime(CLOCK_REALTIME, &start);
 		server.init(pwd, SERVER);
+		clock_gettime(CLOCK_REALTIME, &stop);
+		serverTime += (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
+
+		Spake client(G, M, N, session_param);
+		clock_gettime(CLOCK_REALTIME, &start);
 		client.init(pwd, CLIENT);
+		clock_gettime(CLOCK_REALTIME, &stop);
+		clientTime += (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
 
 		// first message is empty obviously...
 		message m0;
@@ -59,6 +69,13 @@ void test2(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string sess
 		clock_gettime(CLOCK_REALTIME, &stop);
 		serverTime += (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
 
+		if (c1.k != s2.k) {
+			error = true;
+			std::cout << "Client key: " << c1.k.as_string() << "\n";
+			std::cout << "Server key: " << s2.k.as_string() << "\n";
+			break;
+		}
+
 #ifdef DEBUG
 		std::cout << "Client key: " << c1.k.as_string() << "\n";
 		std::cout << "Server key: " << s2.k.as_string() << "\n";
@@ -69,6 +86,9 @@ void test2(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string sess
 		clientAcc += clientTime;
 		serverAcc += serverTime;
 	}
+
+	if(error)
+		printf("An error occurred! --- everything after this is wrong!\n");
 
 	clientAcc /= numRep;
 	serverAcc /= numRep;

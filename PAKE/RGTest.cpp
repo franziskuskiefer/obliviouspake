@@ -13,16 +13,27 @@
 #include "RG/RG-DDH.h"
 
 void test1(Botan::DL_Group G, std::string pwd, CramerShoup *cs, std::string ids, int numRep){
+
 	double serverAcc = 0, clientAcc = 0;
+	bool error = false;
 
 	for (int i = 0; i < numRep; ++i) {
 		struct timespec start, stop;
 		double serverTime = 0, clientTime = 0;
 		// create RGpake Server & Client instances
 		PublicKey pk = cs->getKp().pk;
-		RG_DDH server(G, ids, pk), client(G, ids, pk);
+
+		RG_DDH server(G, ids, pk);
+		clock_gettime(CLOCK_REALTIME, &start);
 		server.init(pwd, SERVER);
+		clock_gettime(CLOCK_REALTIME, &stop);
+		serverTime += (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
+
+		RG_DDH client(G, ids, pk);
+		clock_gettime(CLOCK_REALTIME, &start);
 		client.init(pwd, CLIENT);
+		clock_gettime(CLOCK_REALTIME, &stop);
+		clientTime += (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
 
 		// first message is empty obiously...
 		message m0;
@@ -46,6 +57,13 @@ void test1(Botan::DL_Group G, std::string pwd, CramerShoup *cs, std::string ids,
 		clock_gettime(CLOCK_REALTIME, &stop);
 		clientTime += (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
 
+		if (c2.k != s2.k) {
+			error = true;
+			std::cout << "Client key: " << c2.k.as_string() << "\n";
+			std::cout << "Server key: " << s2.k.as_string() << "\n";
+			break;
+		}
+
 #ifdef DEBUG
 		std::cout << "Client key: " << c2.k.as_string() << "\n";
 		std::cout << "Server key: " << s2.k.as_string() << "\n";
@@ -54,6 +72,9 @@ void test1(Botan::DL_Group G, std::string pwd, CramerShoup *cs, std::string ids,
 		clientAcc += clientTime;
 		serverAcc += serverTime;
 	}
+
+	if(error)
+		printf("An error occurred! --- everything after this is wrong!\n");
 
 	clientAcc /= numRep;
 	serverAcc /= numRep;

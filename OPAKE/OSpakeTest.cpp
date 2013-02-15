@@ -8,7 +8,9 @@
 #include "O-SPAKE.h"
 
 void test1(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string session_param, std::string pwd, std::vector<std::string> pwds, int numRep){
+
 	double serverAcc = 0, clientAcc = 0;
+	bool error = false;
 
 	for (int i = 0; i < numRep; ++i) {
 		struct timespec start, stop;
@@ -16,33 +18,61 @@ void test1(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string sess
 
 		// create Spake Server & Client instances
 		int c = pwds.size();
-		OSpake server(G, M, N, session_param), client(G, M, N, session_param);
 		std::vector<std::string> serverPwd;
 		serverPwd.push_back(pwd);
+
+		OSpake server(G, M, N, session_param);
+		clock_gettime(CLOCK_REALTIME, &start);
 		server.init(serverPwd, SERVER, c);
+		clock_gettime(CLOCK_REALTIME, &stop);
+		serverTime += (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
+
+		OSpake client(G, M, N, session_param);
+		clock_gettime(CLOCK_REALTIME, &start);
 		client.init(pwds, CLIENT, c);
+		clock_gettime(CLOCK_REALTIME, &stop);
+		clientTime += (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
 
 		// first message is empty obiously...
 		message m0;
 		clock_gettime(CLOCK_REALTIME, &start);
 		mk s1 = server.next(m0);
+#ifdef DEBUG
+			std::cout << "s1: " << s1.m.as_string() << "\n";
+#endif
 		clock_gettime(CLOCK_REALTIME, &stop);
 		serverTime += (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
 
 		clock_gettime(CLOCK_REALTIME, &start);
 		mk c1 = client.next(s1.m);
+#ifdef DEBUG
+		std::cout << "c1: " << c1.m.as_string() << "\n";
+#endif
 		clock_gettime(CLOCK_REALTIME, &stop);
 		clientTime += (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
 
 		clock_gettime(CLOCK_REALTIME, &start);
 		mk s2 = server.next(c1.m);
+#ifdef DEBUG
+		std::cout << "s2: " << s2.m.as_string() << "\n";
+#endif
 		clock_gettime(CLOCK_REALTIME, &stop);
 		serverTime += (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
 
 		clock_gettime(CLOCK_REALTIME, &start);
 		mk c2 = client.next(s2.m);
+#ifdef DEBUG
+		std::cout << "c2: " << c2.m.as_string() << "\n";
+#endif
 		clock_gettime(CLOCK_REALTIME, &stop);
 		clientTime += (stop.tv_sec - start.tv_sec) + (double)(stop.tv_nsec - start.tv_nsec)/(double)BILLION;
+
+		if (c2.k != s2.k) {
+			error = true;
+			std::cout << "Client key: " << c2.k.as_string() << "\n";
+			std::cout << "Server key: " << s2.k.as_string() << "\n";
+			break;
+		}
 
 #ifdef DEBUG
 			std::cout << "Client key: " << c2.k.as_string() << "\n";
@@ -55,6 +85,10 @@ void test1(Botan::DL_Group G, Botan::BigInt M, Botan::BigInt N, std::string sess
 		clientAcc += clientTime;
 		serverAcc += serverTime;
 	}
+
+	if(error)
+		printf("An error occurred! --- everything after this is wrong!\n");
+
 	clientAcc /= numRep;
 	serverAcc /= numRep;
 	printf("Client next Acc: %lf sec\n", clientAcc);
